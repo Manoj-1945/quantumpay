@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QuantumShield — Security Command Center</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="shield.css"/>
+</head>
+<body>
+  <canvas id="sc"></canvas>
+  <div class="shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sb-logo">
+        <span class="sb-logo-icon">🛡</span>
+        <div>
+          <div class="sb-name">QuantumShield</div>
+          <div class="sb-sub">Security Command Center</div>
+        </div>
+      </div>
+      <nav class="sb-nav">
+        <a class="sb-item active" onclick="showTab('overview',this)"><span>⬡</span> Overview</a>
+        <a class="sb-item" onclick="showTab('threats',this)"><span>⚠</span> Threat Monitor</a>
+        <a class="sb-item" onclick="showTab('behavior',this)"><span>🧠</span> Behavioral AI</a>
+        <a class="sb-item" onclick="showTab('zerotrust',this)"><span>🔐</span> Zero-Trust</a>
+        <a class="sb-item" onclick="showTab('audit',this)"><span>🔗</span> Quantum Audit Log</a>
+        <a class="sb-item" onclick="showTab('quantum',this)"><span>⚛</span> Quantum Layer</a>
+      </nav>
+      <div class="sb-status">
+        <div class="ss-row"><div class="ss-dot active"></div><span>All Systems Secure</span></div>
+        <div class="ss-row"><div class="ss-dot active"></div><span>Quantum Core Online</span></div>
+        <div class="ss-row"><div class="ss-dot active"></div><span>0 Active Threats</span></div>
+      </div>
+      <a href="pay.html" class="sb-back">← Back to QuantumPay</a>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <!-- TOPBAR -->
+      <div class="topbar">
+        <div class="tb-left">
+          <div class="tb-title" id="tab-title">Security Overview</div>
+          <div class="tb-sub">Real-time quantum security monitoring</div>
+        </div>
+        <div class="tb-right">
+          <div class="threat-level">
+            <div class="tl-dot green"></div>
+            <span class="tl-label">THREAT LEVEL:</span>
+            <span class="tl-val" id="threat-level-val">LOW</span>
+          </div>
+          <div class="tb-clock" id="tb-clock"></div>
+        </div>
+      </div>
+
+      <!-- TABS -->
+
+      <!-- OVERVIEW TAB -->
+      <div class="tab active" id="tab-overview">
+        <div class="metrics-row">
+          <div class="metric-card" style="--c:#00ffaa">
+            <div class="mc-icon">🛡</div>
+            <div class="mc-val" id="m-blocked">2,847</div>
+            <div class="mc-label">Attacks Blocked Today</div>
+            <div class="mc-sub pos">+124 in last hour</div>
+          </div>
+          <div class="metric-card" style="--c:#00f5ff">
+            <div class="mc-icon">⚛</div>
+            <div class="mc-val" id="m-tokens">48,291</div>
+            <div class="mc-label">QRNG Tokens Generated</div>
+            <div class="mc-sub">Avg lifetime: 51ms</div>
+          </div>
+          <div class="metric-card" style="--c:#7b2fff">
+            <div class="mc-icon">🧠</div>
+            <div class="mc-val">94.7%</div>
+            <div class="mc-label">AI Detection Accuracy</div>
+            <div class="mc-sub pos">+0.3% this week</div>
+          </div>
+          <div class="metric-card" style="--c:#ff6b6b">
+            <div class="mc-icon">⚡</div>
+            <div class="mc-val">31ms</div>
+            <div class="mc-label">Avg Response Time</div>
+            <div class="mc-sub">Fraud detected before tx</div>
+          </div>
+        </div>
+
+        <div class="overview-grid">
+          <div class="glass-card">
+            <div class="gc-title">Attack Timeline (Last 24h)</div>
+            <canvas id="attack-chart" height="180"></canvas>
+          </div>
+          <div class="glass-card">
+            <div class="gc-title">Attack Vector Breakdown</div>
+            <canvas id="vector-pie" width="200" height="200"></canvas>
+            <div class="vector-legend" id="vector-legend"></div>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div class="gc-title">Security Layer Status</div>
+          <div class="layer-grid">
+            <div class="layer-item" style="--lc:#00f5ff">
+              <div class="li-icon">⚛</div>
+              <div class="li-name">QRNG Token Engine</div>
+              <div class="li-status active">ACTIVE</div>
+              <div class="li-bar"><div class="lib-fill" style="width:100%"></div></div>
+              <div class="li-val">100% operational</div>
+            </div>
+            <div class="layer-item" style="--lc:#7b2fff">
+              <div class="li-icon">🔐</div>
+              <div class="li-name">PQC Encryption (Kyber)</div>
+              <div class="li-status active">ACTIVE</div>
+              <div class="lib-fill" style="width:100%"></div>
+              <div class="li-bar"><div class="lib-fill" style="width:100%"></div></div>
+              <div class="li-val">All channels encrypted</div>
+            </div>
+            <div class="layer-item" style="--lc:#00ffaa">
+              <div class="li-icon">💎</div>
+              <div class="li-name">HSM Key Vault</div>
+              <div class="li-status active">LOCKED</div>
+              <div class="li-bar"><div class="lib-fill" style="width:100%"></div></div>
+              <div class="li-val">Keys tamper-proof</div>
+            </div>
+            <div class="layer-item" style="--lc:#ff6b6b">
+              <div class="li-icon">🌍</div>
+              <div class="li-name">3-Location Split Secret</div>
+              <div class="li-status active">DISTRIBUTED</div>
+              <div class="li-bar"><div class="lib-fill" style="width:100%"></div></div>
+              <div class="li-val">Mumbai · Singapore · Frankfurt</div>
+            </div>
+            <div class="layer-item" style="--lc:#ffcc00">
+              <div class="li-icon">🧠</div>
+              <div class="li-name">AI Behavioral Analytics</div>
+              <div class="li-status active">LEARNING</div>
+              <div class="li-bar"><div class="lib-fill" style="width:94%"></div></div>
+              <div class="li-val">94% baseline established</div>
+            </div>
+            <div class="layer-item" style="--lc:#ff9f40">
+              <div class="li-icon">🎯</div>
+              <div class="li-name">RASP Self-Defence</div>
+              <div class="li-status active">MONITORING</div>
+              <div class="li-bar"><div class="lib-fill" style="width:100%"></div></div>
+              <div class="li-val">All endpoints protected</div>
+            </div>
+            <div class="layer-item" style="--lc:#4bc0c0">
+              <div class="li-icon">🔗</div>
+              <div class="li-name">Quantum Audit Blockchain</div>
+              <div class="li-status active">RECORDING</div>
+              <div class="li-bar"><div class="lib-fill" style="width:100%"></div></div>
+              <div class="li-val">12,847 entries · immutable</div>
+            </div>
+            <div class="layer-item" style="--lc:#a855f7">
+              <div class="li-icon">🎭</div>
+              <div class="li-name">Moving Target Defence</div>
+              <div class="li-status active">ROTATING</div>
+              <div class="li-bar"><div class="lib-fill" style="width:87%"></div></div>
+              <div class="li-val">IPs rotate every 6h</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- THREAT MONITOR TAB -->
+      <div class="tab" id="tab-threats">
+        <div class="threat-controls">
+          <div class="glass-card threat-summary">
+            <div class="ts-item"><div class="ts-val" id="ts-total">2,847</div><div class="ts-label">Total Blocked</div></div>
+            <div class="ts-item"><div class="ts-val" style="color:var(--pink)">0</div><div class="ts-label">Breaches</div></div>
+            <div class="ts-item"><div class="ts-val" style="color:var(--yellow)">3</div><div class="ts-label">Warnings</div></div>
+            <div class="ts-item"><div class="ts-val" style="color:var(--cyan)">31ms</div><div class="ts-label">Avg Response</div></div>
+          </div>
+        </div>
+        <div class="glass-card">
+          <div class="gc-title">Live Threat Feed <span class="live-dot-wrap"><span class="live-dot"></span> LIVE</span></div>
+          <table class="data-table">
+            <thead><tr><th>Time</th><th>Attack Type</th><th>Source</th><th>Layer Hit</th><th>Status</th><th>Response</th></tr></thead>
+            <tbody id="threat-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- BEHAVIORAL AI TAB -->
+      <div class="tab" id="tab-behavior">
+        <div class="behavior-grid">
+          <div class="glass-card">
+            <div class="gc-title">User Behavior Baseline</div>
+            <canvas id="behavior-chart" height="220"></canvas>
+          </div>
+          <div class="glass-card">
+            <div class="gc-title">Anomaly Detector</div>
+            <div class="anomaly-list" id="anomaly-list"></div>
+          </div>
+        </div>
+        <div class="glass-card">
+          <div class="gc-title">Employee Risk Matrix</div>
+          <table class="data-table">
+            <thead><tr><th>Employee</th><th>Role</th><th>Access Level</th><th>Last Activity</th><th>Anomaly Score</th><th>Status</th></tr></thead>
+            <tbody id="employee-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ZERO TRUST TAB -->
+      <div class="tab" id="tab-zerotrust">
+        <div class="zt-grid">
+          <div class="glass-card">
+            <div class="gc-title">Access Request Log</div>
+            <div class="access-log" id="access-log"></div>
+          </div>
+          <div class="glass-card">
+            <div class="gc-title">Zero-Trust Policy Engine</div>
+            <div class="policy-list">
+              <div class="policy-item">
+                <div class="pi-title">Principle of Least Privilege</div>
+                <div class="pi-desc">Every role has minimum required access only. No user has admin rights by default.</div>
+                <div class="pi-status active">ENFORCED</div>
+              </div>
+              <div class="policy-item">
+                <div class="pi-title">Multi-Party Authorization</div>
+                <div class="pi-desc">Critical actions (HSM access, key rotation) require 3 simultaneous approvals.</div>
+                <div class="pi-status active">ENFORCED</div>
+              </div>
+              <div class="policy-item">
+                <div class="pi-title">Continuous Authentication</div>
+                <div class="pi-desc">Behavioral biometrics re-verify identity every 60 seconds silently.</div>
+                <div class="pi-status active">ENFORCED</div>
+              </div>
+              <div class="policy-item">
+                <div class="pi-title">Device Trust Verification</div>
+                <div class="pi-desc">Only registered, patched devices with quantum security keys can access system.</div>
+                <div class="pi-status active">ENFORCED</div>
+              </div>
+              <div class="policy-item">
+                <div class="pi-title">Network Micro-Segmentation</div>
+                <div class="pi-desc">Each service isolated. Breach of one component cannot spread to others.</div>
+                <div class="pi-status active">ENFORCED</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUDIT LOG TAB -->
+      <div class="tab" id="tab-audit">
+        <div class="glass-card">
+          <div class="gc-title">
+            Quantum-Resistant Blockchain Audit Log
+            <span style="font-size:0.7rem;color:var(--dim);font-weight:400;margin-left:8px">Immutable · Tamper-proof · RBI Compliant</span>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Block #</th><th>Timestamp</th><th>Actor</th><th>Action</th><th>Hash (PQC)</th><th>Verified</th></tr></thead>
+            <tbody id="audit-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- QUANTUM LAYER TAB -->
+      <div class="tab" id="tab-quantum">
+        <div class="q-layer-grid">
+          <div class="glass-card">
+            <div class="gc-title">⚛ QRNG Live Stream</div>
+            <div class="qrng-stream" id="qrng-stream"></div>
+            <div class="qrng-stats">
+              <div class="qs-item"><span>Source</span><strong style="color:var(--cyan)">ANU Quantum Lab</strong></div>
+              <div class="qs-item"><span>Method</span><strong>Photon vacuum fluctuation</strong></div>
+              <div class="qs-item"><span>Entropy</span><strong style="color:var(--green)">8.0 bits/byte (perfect)</strong></div>
+              <div class="qs-item"><span>Rate</span><strong>~5.7 Gbps</strong></div>
+            </div>
+          </div>
+          <div class="glass-card">
+            <div class="gc-title">🔐 PQC Encryption Status</div>
+            <div class="pqc-info">
+              <div class="pqc-algo">
+                <div class="pa-name">CRYSTALS-Kyber</div>
+                <div class="pa-use">Key Encapsulation (KEM)</div>
+                <div class="pa-status">NIST Standard 2024 ✓</div>
+              </div>
+              <div class="pqc-algo">
+                <div class="pa-name">CRYSTALS-Dilithium</div>
+                <div class="pa-use">Digital Signatures</div>
+                <div class="pa-status">NIST Standard 2024 ✓</div>
+              </div>
+              <div class="pqc-algo">
+                <div class="pa-name">SPHINCS+</div>
+                <div class="pa-use">Hash-based Signatures (backup)</div>
+                <div class="pa-status">NIST Standard 2024 ✓</div>
+              </div>
+            </div>
+            <canvas id="q-chart" height="120"></canvas>
+          </div>
+        </div>
+        <div class="glass-card">
+          <div class="gc-title">IBM Quantum + QpiAI Connection</div>
+          <div class="q-connections">
+            <div class="qc-item connected">
+              <div class="qci-icon">🔵</div>
+              <div class="qci-info">
+                <div class="qci-name">IBM Quantum (127-qubit)</div>
+                <div class="qci-sub">ibm_kyoto · Open Plan · 10 min/month</div>
+              </div>
+              <div class="qci-status" style="color:var(--green)">CONNECTED</div>
+            </div>
+            <div class="qc-item connected">
+              <div class="qci-icon">🇮🇳</div>
+              <div class="qci-info">
+                <div class="qci-name">QpiAI Quantum SDK (India)</div>
+                <div class="qci-sub">8-qubit · Local simulator · Open source</div>
+              </div>
+              <div class="qci-status" style="color:var(--green)">ACTIVE</div>
+            </div>
+            <div class="qc-item connected">
+              <div class="qci-icon">🌐</div>
+              <div class="qci-info">
+                <div class="qci-name">ANU QRNG API</div>
+                <div class="qci-sub">Real quantum random numbers · Free · No limit</div>
+              </div>
+              <div class="qci-status" style="color:var(--green)">STREAMING</div>
+            </div>
+            <div class="qc-item">
+              <div class="qci-icon">🔐</div>
+              <div class="qci-info">
+                <div class="qci-name">QNu Labs (India) — QKD</div>
+                <div class="qci-sub">Quantum Key Distribution · Partnership pending</div>
+              </div>
+              <div class="qci-status" style="color:var(--yellow)">PENDING</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="shield.js"></script>
+</body>
+</html>
