@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  quantumpay-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: quantumpay-api
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=quantum_pay_production_secret_key_2026_pqc_kyber
+      - IBM_QUANTUM_TOKEN=${IBM_QUANTUM_TOKEN:-}
+    volumes:
+      - quantumpay-data:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  quantumpay-data:
