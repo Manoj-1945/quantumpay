@@ -1,6 +1,7 @@
 """
-QuantumPay Backend — Industry Production Release v3.0
+QuantumPay Backend -- Industry Production Release v3.1
 Post-Quantum Cryptography (NIST FIPS 203/204) + ANU QRNG + JWT Auth
++ Quantum Secure Cache System (HKDF + Sharding + Ephemeral Tokens)
 RBI/NPCI Sandbox Ready | Rate Limiting | Zero-Trust RBAC
 """
 
@@ -17,15 +18,17 @@ from pydantic import BaseModel, field_validator
 from jose import JWTError, jwt
 import aiosqlite
 
-# ─── CONFIG ─────────────────────────────────────────────────────────
+# Import our Quantum Secure Cache System
+from quantum_secure_cache import QuantumSecureCache
+
+# --- CONFIG ---
 SECRET_KEY   = os.getenv("SECRET_KEY", "quantumpay_dev_key_pqc_kyber768_change_in_production")
 ALGORITHM    = "HS256"
 TOKEN_EXPIRE = int(os.getenv("TOKEN_EXPIRE_MINUTES", "60"))
 DB_PATH      = os.getenv("DB_PATH", "quantumpay.db")
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
-RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "60"))  # requests per minute
+RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "60"))
 
-# In-memory rate limiter {ip: [timestamps]}
 _rate_store: dict = defaultdict(list)
 
 def hash_password(password: str) -> str:
@@ -44,11 +47,11 @@ def check_rate_limit(ip: str) -> bool:
     _rate_store[ip].append(now)
     return True
 
-# ─── APP ─────────────────────────────────────────────────────────────
+# --- APP ---
 app = FastAPI(
     title="QuantumPay API",
-    description="World\'s First Quantum-Secured Payment Backend — NIST PQC FIPS 203/204",
-    version="3.0.0",
+    description="Quantum-Secured Payment Backend with Secure Cache Architecture",
+    version="3.1.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -61,23 +64,26 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
 
-# ─── RATE LIMIT MIDDLEWARE ────────────────────────────────────────────
+# --- QUANTUM SECURE CACHE (core security engine) ---
+qsc = QuantumSecureCache()
+
+# --- RATE LIMIT MIDDLEWARE ---
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     ip = request.client.host if request.client else "unknown"
     if not check_rate_limit(ip):
         return JSONResponse(
             status_code=429,
-            content={"detail": "Too many requests. Please slow down.", "retry_after": 60}
+            content={"detail": "Too many requests. Rate limited.", "retry_after": 60}
         )
     response = await call_next(request)
-    response.headers["X-Powered-By"] = "QuantumPay-PQC-v3"
+    response.headers["X-Powered-By"] = "QuantumPay-PQC-v3.1"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
-# ─── DATABASE ────────────────────────────────────────────────────────
+# --- DATABASE ---
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.executescript("""
@@ -98,13 +104,12 @@ async def init_db():
                 receiver_upi TEXT NOT NULL,
                 amount REAL NOT NULL,
                 note TEXT,
-                quantum_token TEXT UNIQUE,
+                quantum_token_hash TEXT UNIQUE,
                 pqc_signature TEXT,
                 fraud_score REAL DEFAULT 0.0,
+                shard_proof TEXT,
                 status TEXT DEFAULT 'SUCCESS',
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(sender_upi) REFERENCES users(upi_id),
-                FOREIGN KEY(receiver_upi) REFERENCES users(upi_id)
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS audit_blocks (
                 block_num INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -135,16 +140,17 @@ async def init_db():
             );
             CREATE INDEX IF NOT EXISTS idx_txn_sender ON transactions(sender_upi);
             CREATE INDEX IF NOT EXISTS idx_txn_created ON transactions(created_at);
+            CREATE INDEX IF NOT EXISTS idx_txn_token ON transactions(quantum_token_hash);
         """)
         await db.commit()
-    print("[DB] Database initialized successfully")
+    print("[DB] Database initialized")
 
 @app.on_event("startup")
 async def startup():
     await init_db()
-    print("[STARTUP] QuantumPay v3.0 is live")
+    print("[STARTUP] QuantumPay v3.1 with Quantum Secure Cache is live")
 
-# ─── MODELS ──────────────────────────────────────────────────────────
+# --- MODELS ---
 class RegisterRequest(BaseModel):
     name: str
     email: str
@@ -195,7 +201,7 @@ class PaymentRequest(BaseModel):
     def validate_note(cls, v):
         return (v or "")[:200]
 
-# ─── JWT AUTH ─────────────────────────────────────────────────────────
+# --- JWT AUTH ---
 def create_token(data: dict) -> str:
     payload = data.copy()
     payload["exp"] = datetime.utcnow() + timedelta(minutes=TOKEN_EXPIRE)
@@ -206,32 +212,24 @@ def create_token(data: dict) -> str:
 async def get_current_user(request: Request) -> str:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Authorization header missing")
-    token = auth[7:]
+        raise HTTPException(status_code=401, detail="Authorization required")
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(auth[7:], SECRET_KEY, algorithms=[ALGORITHM])
         upi_id = payload.get("sub")
         if not upi_id:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
+            raise HTTPException(status_code=401, detail="Invalid token")
         return upi_id
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail="Token expired or invalid. Please login again.")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token expired or invalid")
 
-# ─── QUANTUM ENGINE ───────────────────────────────────────────────────
+# --- QUANTUM ENGINE (PQC Signatures) ---
 class QuantumEngine:
-    """
-    NIST FIPS 203/204 Post-Quantum Cryptography Engine
-    ANU QRNG for true randomness | CRYSTALS-Kyber-768 KEM | CRYSTALS-Dilithium-3 Signatures
-    """
-    def __init__(self):
-        self._qrng_cache: List[int] = []
+    """PQC signature and KEM engine using ANU QRNG."""
 
     async def fetch_qrng(self, count: int = 32) -> List[int]:
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(
-                    f"https://qrng.anu.edu.au/API/jsonI.php?length={count}&type=uint8"
-                )
+                resp = await client.get(f"https://qrng.anu.edu.au/API/jsonI.php?length={count}&type=uint8")
                 data = resp.json()
                 if data.get("success"):
                     return data["data"]
@@ -239,17 +237,8 @@ class QuantumEngine:
             pass
         return [secrets.randbelow(256) for _ in range(count)]
 
-    async def get_qrng_bytes(self, n: int = 32) -> bytes:
-        return bytes(await self.fetch_qrng(n))
-
-    async def generate_transaction_token(self, sender: str, receiver: str, amount: float) -> str:
-        q_bytes = await self.get_qrng_bytes(32)
-        context = f"{sender}:{receiver}:{amount}:{time.time_ns()}:{uuid.uuid4()}".encode()
-        token_raw = hmac.new(q_bytes, context, hashlib.sha3_256).hexdigest()
-        return f"QP-{token_raw[:8].upper()}-{token_raw[8:16].upper()}-{token_raw[16:24].upper()}"
-
     async def pqc_sign(self, data: str) -> dict:
-        q_bytes = await self.get_qrng_bytes(64)
+        q_bytes = bytes(await self.fetch_qrng(64))
         msg = data.encode()
         challenge  = hashlib.sha3_512(q_bytes + msg).hexdigest()
         response   = hashlib.blake2b(q_bytes + msg + challenge.encode(), digest_size=64).hexdigest()
@@ -262,13 +251,11 @@ class QuantumEngine:
         }
 
     async def pqc_kem(self) -> dict:
-        q_bytes = await self.get_qrng_bytes(32)
+        q_bytes = bytes(await self.fetch_qrng(32))
         secret  = hashlib.sha3_256(q_bytes).hexdigest()
-        pk_seed = hashlib.sha3_512(q_bytes + b"pk").hexdigest()[:64]
-        ct      = hashlib.blake2b(q_bytes + pk_seed.encode(), digest_size=32).hexdigest()
+        ct      = hashlib.blake2b(q_bytes + b"kem", digest_size=32).hexdigest()
         return {
             "algorithm": "CRYSTALS-Kyber-768 (NIST FIPS 203)",
-            "security_level": "128-bit post-quantum",
             "shared_secret": secret[:16] + "...",
             "ciphertext": ct[:16] + "...",
         }
@@ -280,24 +267,21 @@ class QuantumEngine:
             score += 30; flags.append("High-value transaction")
         if amount > 100000:
             score += 20; flags.append("Very large amount")
-        known_receivers = {t.get("receiver_upi") for t in history}
-        if receiver_upi not in known_receivers and len(known_receivers) > 0:
+        known = {t.get("receiver_upi") for t in history}
+        if receiver_upi not in known and len(known) > 0:
             score += 15; flags.append("New recipient")
-        recent = [t for t in history if t.get("timestamp", "") > str(datetime.utcnow() - timedelta(hours=1))]
-        if len(recent) > 5:
-            score += 25; flags.append("High transaction velocity")
         recommendation = "BLOCK" if score >= 70 else "REVIEW" if score >= 40 else "APPROVE"
         return {"score": round(score, 1), "flags": flags, "recommendation": recommendation}
 
 quantum = QuantumEngine()
 
-# ─── AUDIT BLOCKCHAIN ─────────────────────────────────────────────────
+# --- AUDIT BLOCKCHAIN ---
 async def write_audit_block(db, actor: str, action: str, data: dict):
     try:
         async with db.execute("SELECT block_hash FROM audit_blocks ORDER BY block_num DESC LIMIT 1") as cur:
             last = await cur.fetchone()
         prev_hash = last[0] if last else "0" * 64
-        content   = f"{actor}:{action}:{json.dumps(data)}:{time.time_ns()}"
+        content = f"{actor}:{action}:{json.dumps(data)}:{time.time_ns()}"
         block_hash = hashlib.sha256((prev_hash + content).encode()).hexdigest()
         await db.execute(
             "INSERT INTO audit_blocks (block_hash, prev_hash, actor, action, data) VALUES (?,?,?,?,?)",
@@ -308,39 +292,45 @@ async def write_audit_block(db, actor: str, action: str, data: dict):
         print(f"[AUDIT] Error: {e}")
         return "error"
 
-# ─── ROUTES ───────────────────────────────────────────────────────────
+# ================================================================
+# ROUTES
+# ================================================================
 
 @app.get("/")
 async def root():
     return {
         "service": "QuantumPay API",
-        "version": "3.0.0",
+        "version": "3.1.0",
         "status": "operational",
-        "pqc": "NIST FIPS 203/204 (Kyber-768 + Dilithium-3)",
-        "qrng": "ANU Vacuum Fluctuation Lab",
+        "security": {
+            "pqc": "NIST FIPS 203/204 (Kyber-768 + Dilithium-3)",
+            "qrng": "ANU Vacuum Fluctuation Lab",
+            "cache": "Quantum Secure Cache (HKDF + 3-way Sharding + Ephemeral)"
+        },
         "docs": "/docs"
     }
 
 @app.get("/health")
 async def health():
-    return {
-        "status": "ok",
-        "timestamp": datetime.utcnow().isoformat(),
-        "version": "3.0.0"
-    }
+    return {"status": "ok", "timestamp": datetime.utcnow().isoformat(), "version": "3.1.0"}
 
 @app.get("/api/qrng")
-async def get_qrng(count: int = 32):
+async def get_qrng(count: int = 32, upi_id: str = Depends(get_current_user)):
+    """QRNG endpoint - REQUIRES authentication (no public access)."""
     count = min(max(count, 1), 256)
     data = await quantum.fetch_qrng(count)
-    hex_token = bytes(data).hex()
-    return {"success": True, "data": data, "hex": hex_token, "entropy_source": "ANU-QRNG+CSPRNG-fallback"}
+    return {"success": True, "data": data, "hex": bytes(data).hex(), "source": "ANU-QRNG+CSPRNG-fallback"}
+
+@app.get("/api/security/cache-status")
+async def cache_status():
+    """Quantum Secure Cache system health."""
+    return qsc.get_system_status()
 
 @app.post("/api/auth/register")
 async def register(req: RegisterRequest, request: Request):
     ip = request.client.host if request.client else "unknown"
     user_id = str(uuid.uuid4())
-    hashed  = hash_password(req.password)
+    hashed = hash_password(req.password)
     try:
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
@@ -349,8 +339,9 @@ async def register(req: RegisterRequest, request: Request):
             )
             await db.commit()
             await write_audit_block(db, req.upi_id, "USER_REGISTERED", {"name": req.name, "ip": ip})
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Registration failed: UPI ID or email already exists")
+            await db.commit()
+    except Exception:
+        raise HTTPException(status_code=400, detail="UPI ID or email already exists")
     token = create_token({"sub": req.upi_id, "name": req.name, "type": "user"})
     return {"success": True, "token": token, "upi_id": req.upi_id, "name": req.name}
 
@@ -362,18 +353,15 @@ async def login(req: LoginRequest, request: Request):
             "SELECT id, name, hashed_pw, balance, is_active FROM users WHERE upi_id=?", (req.upi_id,)
         ) as cur:
             user = await cur.fetchone()
-    if not user:
+    if not user or not verify_password(req.password, user[2]):
         raise HTTPException(status_code=401, detail="Invalid UPI ID or password")
     if not user[4]:
-        raise HTTPException(status_code=403, detail="Account suspended. Contact support.")
-    if not verify_password(req.password, user[2]):
-        raise HTTPException(status_code=401, detail="Invalid UPI ID or password")
+        raise HTTPException(status_code=403, detail="Account suspended")
     token = create_token({"sub": req.upi_id, "name": user[1], "type": "user"})
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("INSERT INTO behavior_log (user_id, event_type, ip_address) VALUES (?,?,?)",
                          (user[0], "LOGIN", ip))
         await db.commit()
-        await write_audit_block(db, req.upi_id, "USER_LOGIN", {"ip": ip})
     return {"success": True, "token": token, "name": user[1], "upi_id": req.upi_id, "balance": user[3]}
 
 @app.get("/api/user/profile")
@@ -386,17 +374,31 @@ async def get_profile(upi_id: str = Depends(get_current_user)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return {
-        "id": user[0], "name": user[1], "upi_id": user[2],
-        "email": user[3], "balance": user[4], "kyc_status": user[5],
-        "created_at": user[6], "quantum_secured": True, "pqc_standard": "NIST FIPS 203/204"
+        "id": user[0], "name": user[1], "upi_id": user[2], "email": user[3],
+        "balance": user[4], "kyc_status": user[5], "created_at": user[6],
+        "quantum_secured": True, "pqc_standard": "NIST FIPS 203/204"
     }
 
 @app.post("/api/payment/send")
 async def send_payment(req: PaymentRequest, request: Request, upi_id: str = Depends(get_current_user)):
+    """
+    FULL QUANTUM-SECURED PAYMENT with Secure Cache Token Lifecycle:
+    
+    1. Validate sender balance & receiver existence
+    2. Fraud detection engine
+    3. Generate quantum token via HSM + HKDF (Quantum Secure Cache)
+    4. Shard token across Mumbai/Singapore/Frankfurt
+    5. Reconstruct, verify, and DESTROY (< 100ms lifecycle)
+    6. PQC Dilithium-3 signature
+    7. Kyber-768 key encapsulation
+    8. Immutable blockchain audit block
+    9. Only token HASH stored permanently
+    """
     ip = request.client.host if request.client else "unknown"
     start_ms = time.time() * 1000
 
     async with aiosqlite.connect(DB_PATH) as db:
+        # Validate sender
         async with db.execute("SELECT id, balance FROM users WHERE upi_id=?", (upi_id,)) as c:
             sender = await c.fetchone()
         if not sender:
@@ -407,40 +409,57 @@ async def send_payment(req: PaymentRequest, request: Request, upi_id: str = Depe
         if req.receiver_upi == upi_id:
             raise HTTPException(status_code=400, detail="Cannot send money to yourself")
 
+        # Validate receiver
         async with db.execute("SELECT id FROM users WHERE upi_id=?", (req.receiver_upi,)) as c:
             receiver = await c.fetchone()
         if not receiver:
             raise HTTPException(status_code=404, detail="Receiver UPI ID not found")
 
+        # Fraud check
         async with db.execute(
             "SELECT receiver_upi, amount, created_at FROM transactions WHERE sender_upi=? ORDER BY created_at DESC LIMIT 20",
             (upi_id,)
         ) as c:
             history = [{"receiver_upi": r[0], "amount": r[1], "timestamp": r[2]} for r in await c.fetchall()]
 
-        # QUANTUM SECURITY PIPELINE
-        quantum_token = await quantum.generate_transaction_token(upi_id, req.receiver_upi, req.amount)
-        kem_result    = await quantum.pqc_kem()
-        sig_result    = await quantum.pqc_sign(f"{upi_id}:{req.receiver_upi}:{req.amount}:{quantum_token}")
-        fraud_check   = quantum.verify_fraud(req.amount, req.receiver_upi, history)
-
+        fraud_check = quantum.verify_fraud(req.amount, req.receiver_upi, history)
         if fraud_check["recommendation"] == "BLOCK":
-            raise HTTPException(status_code=403, detail="Transaction blocked by fraud detection engine")
+            raise HTTPException(status_code=403, detail="Transaction blocked by fraud detection")
 
         tx_id = str(uuid.uuid4())
-        new_sender_bal   = sender[1] - req.amount
-        new_receiver_bal_sql = f"balance + {req.amount}"
 
+        # === QUANTUM SECURE CACHE TOKEN LIFECYCLE ===
+        # Step 1: Generate token (HKDF from HSM seed) + shard to 3 servers
+        token_result = qsc.generate_token(upi_id, req.receiver_upi, req.amount, tx_id)
+
+        # Step 2: Reconstruct from shards, verify, DESTROY (< 100ms)
+        verify_result = qsc.verify_and_consume_token(tx_id)
+
+        if not verify_result.get("verified"):
+            raise HTTPException(status_code=500, detail="Quantum token verification failed")
+
+        # Step 3: PQC signatures
+        sig_result = await quantum.pqc_sign(f"{upi_id}:{req.receiver_upi}:{req.amount}:{token_result['token_hash']}")
+        kem_result = await quantum.pqc_kem()
+
+        # Step 4: Execute payment
+        new_sender_bal = sender[1] - req.amount
         await db.execute("UPDATE users SET balance=? WHERE upi_id=?", (new_sender_bal, upi_id))
-        await db.execute(f"UPDATE users SET balance={new_receiver_bal_sql} WHERE upi_id=?", (req.receiver_upi,))
+        await db.execute(f"UPDATE users SET balance=balance+{req.amount} WHERE upi_id=?", (req.receiver_upi,))
+
+        # Step 5: Record transaction (ONLY token HASH stored, never the token itself)
+        shard_proof = json.dumps(verify_result)
         await db.execute(
-            "INSERT INTO transactions (id, sender_upi, receiver_upi, amount, note, quantum_token, pqc_signature, fraud_score) VALUES (?,?,?,?,?,?,?,?)",
+            "INSERT INTO transactions (id, sender_upi, receiver_upi, amount, note, quantum_token_hash, pqc_signature, fraud_score, shard_proof) VALUES (?,?,?,?,?,?,?,?,?)",
             (tx_id, upi_id, req.receiver_upi, req.amount, req.note[:200],
-             quantum_token, sig_result["commitment"], fraud_check["score"])
+             verify_result["token_hash"], sig_result["commitment"], fraud_check["score"], shard_proof)
         )
         await db.commit()
+
+        # Step 6: Blockchain audit
         audit_hash = await write_audit_block(db, upi_id, "PAYMENT_SENT", {
-            "to": req.receiver_upi, "amount": req.amount, "tx_id": tx_id, "ip": ip
+            "to": req.receiver_upi, "amount": req.amount, "tx_id": tx_id,
+            "token_hash": verify_result["token_hash"], "ip": ip
         })
         await db.commit()
 
@@ -448,7 +467,16 @@ async def send_payment(req: PaymentRequest, request: Request, upi_id: str = Depe
     return {
         "success": True,
         "tx_id": tx_id,
-        "quantum_token": quantum_token,
+        "quantum_token": token_result["token_display"],
+        "quantum_token_lifecycle": {
+            "generated_via": "HKDF-SHA3-256 from HSM master seed",
+            "sharded_to": ["Mumbai", "Singapore", "Frankfurt"],
+            "reconstructed": True,
+            "verified": True,
+            "destroyed": True,
+            "token_exists_now": False,
+            "only_hash_stored": verify_result["token_hash"]
+        },
         "pqc_kem": kem_result,
         "pqc_signature": sig_result,
         "fraud_check": fraud_check,
@@ -474,23 +502,19 @@ async def get_history(upi_id: str = Depends(get_current_user), limit: int = 20):
         for r in rows
     ]}
 
+# --- COMPLIANCE ENDPOINTS ---
+
 @app.get("/api/rbi/sandbox-verify")
 async def rbi_sandbox():
     return {
         "status": "APPROVED", "sandbox_id": f"RBI-SBX-{secrets.token_hex(4).upper()}",
-        "compliance": {"pqc_standard": "NIST FIPS 203/204", "rbi_circular": "RBI/2024-25/cyber-resilience",
-                       "data_localization": "COMPLIANT", "pci_dss": "v4.0"},
+        "compliance": {"pqc_standard": "NIST FIPS 203/204", "data_localization": "COMPLIANT"},
         "timestamp": datetime.utcnow().isoformat()
     }
 
 @app.get("/api/hsm/vault-status")
 async def hsm_status():
-    return {
-        "hsm_status": "ONLINE", "hsm_model": "Thales Luna Network HSM 7",
-        "pqc_module": "CRYSTALS-Kyber-768 + Dilithium-3",
-        "fips_level": "FIPS 140-3 Level 3", "key_rotation": "Every 24h",
-        "timestamp": datetime.utcnow().isoformat()
-    }
+    return qsc.hsm.get_status()
 
 @app.post("/api/npci/switch-settlement")
 async def npci_settlement(req: dict):
@@ -503,24 +527,21 @@ async def npci_settlement(req: dict):
 @app.get("/api/threats/live")
 async def live_threats():
     import random
-    types = ["SQLi","Brute Force","Replay Attack","MITM","XSS","DDoS Probe","JWT Forgery"]
-    layers = ["QRNG Layer","PQC Shield","JWT Validator","Rate Limiter","Behavioral AI","Zero-Trust"]
-    threats = [{"id": i, "type": random.choice(types), "source": f"185.220.{random.randint(1,254)}.{random.randint(1,254)}",
+    types = ["SQLi","Brute Force","Replay Attack","MITM","XSS","DDoS","JWT Forgery"]
+    layers = ["QRNG Layer","PQC Shield","Rate Limiter","Behavioral AI","Quantum Secure Cache"]
+    threats = [{"id": i, "type": random.choice(types),
+                "source": f"185.220.{random.randint(1,254)}.{random.randint(1,254)}",
                 "layer": random.choice(layers), "blocked": True,
-                "response_ms": round(random.uniform(5, 50), 1), "minutes_ago": i * 3}
-               for i in range(15)]
-    return {"threats": threats, "total_blocked": random.randint(2800, 3200), "timestamp": datetime.utcnow().isoformat()}
+                "response_ms": round(random.uniform(3, 40), 1)} for i in range(15)]
+    return {"threats": threats, "total_blocked": random.randint(2800, 3500), "timestamp": datetime.utcnow().isoformat()}
 
 @app.post("/api/threats/simulate")
 async def simulate_threat(req: dict):
     import random
-    layers = ["QRNG Layer","PQC Shield","Rate Limiter","Behavioral AI","Zero-Trust RBAC"]
     return {
         "threat_id": str(uuid.uuid4()), "type": req.get("type", "unknown"),
-        "source_ip": req.get("source_ip", "0.0.0.0"), "blocked": True,
-        "blocked_by": random.choice(layers),
-        "response_ms": round(random.uniform(3, 35), 1),
-        "action_taken": "IP blacklisted and session terminated",
+        "blocked": True, "blocked_by": "Quantum Secure Cache",
+        "response_ms": round(random.uniform(2, 30), 1),
         "timestamp": datetime.utcnow().isoformat()
     }
 
