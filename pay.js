@@ -5,7 +5,9 @@
    Real ANU QRNG (proxied) + PQC + JWT Auth
    ===================================================== */
 
-const API = 'http://localhost:8000'; // ← Backend URL
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname)
+  ? 'http://localhost:8000'
+  : window.location.origin; // ← Auto-detects local vs live cloud
 const AUTH_TOKEN = () => localStorage.getItem('qp_token') || '';
 const AUTH_HDR   = () => ({ 'Authorization': `Bearer ${AUTH_TOKEN()}`, 'Content-Type': 'application/json' });
 
