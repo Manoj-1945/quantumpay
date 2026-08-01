@@ -3,12 +3,10 @@ services:
     name: quantumpay-api
     env: python
     region: singapore
-    buildCommand: "pip install -r backend/requirements.txt && pip install qiskit qiskit-ibm-runtime"
-    startCommand: "python backend/main.py"
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port 10000"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.12.0
+        value: "3.11"
       - key: SECRET_KEY
-        generateValue: true
-      - key: IBM_QUANTUM_TOKEN
-        sync: false
+        value: "quantumpay_prod_key_pqc_kyber768_dilithium3_2026"
