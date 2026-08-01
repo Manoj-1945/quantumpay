@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QuantumPay B2B — Quantum Security API Middleware for Payments</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Space+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+    body { background: #020614; color: #e0eaff; line-height: 1.6; padding: 40px 20px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 40px; }
+    .logo { font-size: 48px; color: #00f5ff; }
+    h1 { font-size: 36px; font-weight: 800; color: #fff; margin: 10px 0; }
+    .subtitle { color: #8090b0; font-size: 16px; max-width: 600px; margin: 0 auto; }
+    .badge { display: inline-block; background: rgba(0,245,255,0.15); color: #00f5ff; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 13px; margin-top: 14px; }
+    .card { background: rgba(10, 20, 50, 0.8); border: 1px solid rgba(0, 245, 255, 0.2); border-radius: 20px; padding: 30px; margin-bottom: 30px; }
+    h2 { color: #00f5ff; font-size: 22px; margin-bottom: 16px; }
+    code { font-family: 'Space Mono', monospace; background: rgba(0,0,0,0.6); color: #00ffaa; padding: 2px 8px; border-radius: 4px; font-size: 13px; }
+    pre { background: #000; border: 1px solid rgba(0,255,170,0.3); border-radius: 12px; padding: 20px; overflow-x: auto; font-family: 'Space Mono', monospace; color: #00ffaa; font-size: 13px; margin: 16px 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
+    .feature-box { background: rgba(15,25,60,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 20px; }
+    .feature-title { color: #fff; font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+    .feature-desc { color: #8090b0; font-size: 13px; }
+    .btn { display: inline-block; background: #00f5ff; color: #000; font-weight: bold; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-size: 15px; margin-top: 10px; cursor: pointer; border: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">⚛</div>
+      <h1>QuantumPay B2B Security Gateway</h1>
+      <p class="subtitle">Integrate Post-Quantum Cryptography (NIST FIPS 203/204) & Quantum Secure Cache into existing payment platforms with 3 lines of code.</p>
+      <span class="badge">Zero Hardware Overhead · Plug & Play for Banks & Gateways</span>
+    </div>
+
+    <!-- CODE INTEGRATION CARD -->
+    <div class="card">
+      <h2>🔌 3-Line B2B Integration SDK</h2>
+      <p style="color:#8090b0; font-size:14px;">Existing payment gateways (Razorpay, PhonePe, Paytm, HDFC) plug QuantumPay middleware directly into their checkout pipeline:</p>
+      
+      <pre>
+// Node.js / Python B2B SDK Integration
+const { QuantumPaySDK } = require('@quantumpay/security');
+
+const qpay = new QuantumPaySDK({ partnerId: 'PTR-RAZORPAY', apiKey: 'qp_live_...' });
+
+// Protect any transaction before sending to banking network
+const secProof = await qpay.protectTransaction({
+  merchantId: 'MERCHANT_8819',
+  amount: 5000.00,
+  customerRef: 'CUST_9941'
+});
+
+console.log(secProof.quantum_proof_token); // QP-B2B-8A3F91B2-C7E4D0A9
+console.log(secProof.post_quantum_spec);   // CRYSTALS-Kyber-768
+      </pre>
+
+      <button class="btn" onclick="testB2BEndpoint()">⚡ Test Live B2B API Response</button>
+      <div id="b2b-result" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- BUSINESS ADVANTAGES GRID -->
+    <div class="grid">
+      <div class="feature-box">
+        <div class="feature-title">💼 Zero HSM Hardware Cost</div>
+        <div class="feature-desc">Partner payment gateways use their existing infrastructure. You provide the pure software security layer without buying expensive hardware chips.</div>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">💰 Instant B2B Monetization</div>
+        <div class="feature-desc">Charge ₹0.05 to ₹0.10 per protected transaction or charge an annual enterprise SaaS subscription (₹10 Lakh - ₹50 Lakh / year).</div>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">🏛 Reinvest & Expand</div>
+        <div class="feature-desc">Use profits generated from B2B security licensing to fund your own standalone consumer banking & UPI network later!</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function testB2BEndpoint() {
+      const resDiv = document.getElementById('b2b-result');
+      resDiv.innerHTML = '<code style="color:#00f5ff">Requesting B2B Quantum Security Proof...</code>';
+      try {
+        const resp = await fetch('https://quantumpay-api.onrender.com/api/v1/b2b/sign-transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            partner_id: 'PTR-RAZORPAY',
+            api_key: 'qp_live_rzp_9941a',
+            amount: 5000,
+            currency: 'INR',
+            merchant_id: 'MERCHANT_8819',
+            customer_ref: 'CUST_9941',
+            payload_hash: 'e3b0c44298fc1c149afbf4c8996fb924'
+          })
+        });
+        const data = await resp.json();
+        resDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+      } catch (e) {
+        resDiv.innerHTML = '<pre style="color:#ff6b6b">Status: Demo Mode Active
+' + JSON.stringify({
+          status: "SECURED",
+          transaction_ref: "QP-B2B-9941A8820B",
+          quantum_proof_token: "QP-B2B-8A3F91B2-C7E4D0A9",
+          post_quantum_spec: {
+            kem: "CRYSTALS-Kyber-768 (NIST FIPS 203)",
+            sig: "CRYSTALS-Dilithium-3 (NIST FIPS 204)"
+          },
+          latency_us: 14.2
+        }, null, 2) + '</pre>';
+      }
+    }
+  </script>
+</body>
+</html>
