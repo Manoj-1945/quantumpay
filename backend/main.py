@@ -549,3 +549,18 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False, log_level="info")
+
+# --- B2B ENTERPRISE GATEWAY ROUTE ---
+from b2b_gateway import b2b_engine, B2BTransactionPayload
+
+@app.post("/api/v1/b2b/sign-transaction")
+async def b2b_sign_transaction(req: B2BTransactionPayload):
+    """
+    B2B Security Middleware Endpoint for Razorpay / PhonePe / Paytm / Banks.
+    Protects partner transactions with NIST Kyber-768 & Dilithium-3 PQC proofs.
+    """
+    if not b2b_engine.authenticate_partner(req.partner_id, req.api_key):
+        raise HTTPException(status_code=401, detail="Invalid B2B Partner ID or API Key")
+    
+    proof = b2b_engine.generate_b2b_security_proof(req.partner_id, req.amount, req.customer_ref)
+    return proof
