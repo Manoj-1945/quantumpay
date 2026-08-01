@@ -21,6 +21,7 @@ export default function UserApp() {
   const [recipientUpi, setRecipientUpi] = useState('merchant@quantumpay');
   const [amount, setAmount] = useState('500');
   const [balance, setBalance] = useState(124830.42);
+  const [isBalanceVisible, setIsBalanceVisible] = useState(false); // Balance hidden by default for privacy
   const [loading, setLoading] = useState(false);
   const [txResult, setTxResult] = useState<any>(null);
   const [generatedToken, setGeneratedToken] = useState<string>('QP-8A3F91B2-C7E4D0A9-5F2E1B8C');
@@ -30,6 +31,28 @@ export default function UserApp() {
   const [biometricEnabled, setBiometricEnabled] = useState(true);
   const [simBound, setSimBound] = useState(true);
   const [gpsActive, setGpsActive] = useState(true);
+
+  const toggleBalancePrivacy = () => {
+    if (!isBalanceVisible) {
+      if (biometricEnabled) {
+        Alert.alert(
+          '🔐 Biometric Check',
+          'Scan Fingerprint / FaceID to reveal bank balance',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Authenticate',
+              onPress: () => setIsBalanceVisible(true)
+            }
+          ]
+        );
+      } else {
+        setIsBalanceVisible(true);
+      }
+    } else {
+      setIsBalanceVisible(false);
+    }
+  };
 
   const handlePayment = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -71,7 +94,6 @@ export default function UserApp() {
         throw new Error(data.detail || 'Payment failed');
       }
     } catch (e: any) {
-      // Local Ephemeral Quantum Fallback
       const mockTx = {
         success: true,
         tx_id: 'QP-TX-' + Math.random().toString(36).substring(2, 9).toUpperCase(),
@@ -139,11 +161,20 @@ export default function UserApp() {
         {activeTab === 'home' && (
           <View>
             <View style={styles.balanceCard}>
-              <Text style={styles.balLabel}>Total Wallet Balance</Text>
-              <Text style={styles.balValue}>₹{balance.toLocaleString('en-IN')}</Text>
+              <View style={styles.balHeader}>
+                <Text style={styles.balLabel}>Total Wallet Balance</Text>
+                <TouchableOpacity onPress={toggleBalancePrivacy} style={styles.eyeBtn}>
+                  <Text style={styles.eyeIcon}>{isBalanceVisible ? '👁️ Hide' : '🔒 View Balance'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* PRIVACY PROTECTED BALANCE */}
+              <Text style={styles.balValue}>
+                {isBalanceVisible ? `₹${balance.toLocaleString('en-IN')}` : '₹ ••••••••'}
+              </Text>
 
               <View style={styles.badgeRow}>
-                <View style={styles.qBadge}><Text style={styles.qBadgeText}>⚛ PQC Kyber-768 Protected</Text></View>
+                <View style={styles.qBadge}><Text style={styles.qBadgeText}>⚛ PQC Kyber-768</Text></View>
                 <View style={styles.hsmBadge}><Text style={styles.hsmBadgeText}>🔒 HSM Seed Locked</Text></View>
               </View>
 
@@ -272,7 +303,7 @@ export default function UserApp() {
               <View style={styles.permItem}>
                 <View style={{flex:1}}>
                   <Text style={styles.permName}>🔐 Biometric Authentication</Text>
-                  <Text style={styles.permDesc}>Fingerprint / FaceID required before payment</Text>
+                  <Text style={styles.permDesc}>Fingerprint / FaceID required before payment & viewing balance</Text>
                 </View>
                 <Switch value={biometricEnabled} onValueChange={setBiometricEnabled} trackColor={{true:'#00f5ff'}} />
               </View>
@@ -328,12 +359,15 @@ const styles = StyleSheet.create({
   appLogo: { fontSize: 28, color: '#00f5ff' },
   appName: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
   appRole: { fontSize: 11, color: '#8090b0' },
-  profileBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'linear-gradient(135deg, #7b2fff, #00f5ff)', alignItems: 'center', justifyContent: 'center' },
+  profileBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#7b2fff', alignItems: 'center', justifyContent: 'center' },
   profileText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
   content: { padding: 20, paddingBottom: 100 },
   balanceCard: { backgroundColor: 'rgba(10, 20, 50, 0.9)', borderWidth: 1, borderColor: 'rgba(0,245,255,0.25)', borderRadius: 20, padding: 20, marginBottom: 24 },
+  balHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   balLabel: { color: '#8090b0', fontSize: 12 },
-  balValue: { color: '#fff', fontSize: 32, fontWeight: 'bold', marginVertical: 6 },
+  eyeBtn: { backgroundColor: 'rgba(0,245,255,0.12)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  eyeIcon: { color: '#00f5ff', fontSize: 11, fontWeight: 'bold' },
+  balValue: { color: '#fff', fontSize: 32, fontWeight: 'bold', marginVertical: 6, letterSpacing: 2 },
   badgeRow: { flexDirection: 'row', gap: 8, marginVertical: 8 },
   qBadge: { backgroundColor: 'rgba(0,245,255,0.12)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   qBadgeText: { color: '#00f5ff', fontSize: 11, fontWeight: 'bold' },
