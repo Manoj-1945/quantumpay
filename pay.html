@@ -84,6 +84,37 @@
           </div>
         </div>
 
+        
+        <!-- QUANTUM TOKEN GENERATOR & INSPECTOR -->
+        <div class="card" style="background: rgba(5, 12, 35, 0.95); border: 1px solid rgba(0, 245, 255, 0.3); border-radius: 16px; padding: 16px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="color: #00f5ff; font-weight: 700; font-size: 14px;">⚛ Quantum Token Inspector</div>
+            <span style="background: rgba(0,245,255,0.15); color: #00f5ff; font-size: 10px; padding: 3px 8px; border-radius: 20px;">NIST Kyber-768</span>
+          </div>
+
+          <div style="font-size: 11px; color: #8090b0; margin-bottom: 10px;">
+            Generate true quantum random numbers live from ANU Optics Lab / IBM Qiskit engine:
+          </div>
+
+          <div id="q-token-display" style="background: rgba(0,0,0,0.6); border: 1px solid rgba(0,255,170,0.3); padding: 12px; border-radius: 10px; font-family: monospace; color: #00ffaa; font-size: 12px; word-break: break-all; margin-bottom: 12px;">
+            QP-8A3F91B2-C7E4D0A9-5F2E1B8C
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+            <button onclick="generateQuantumToken()" style="background: #00f5ff; color: #000; font-weight: bold; border: none; border-radius: 8px; padding: 10px; font-size: 12px; cursor: pointer;">
+              ⚡ Generate Token
+            </button>
+            <button onclick="copyQuantumToken()" style="background: rgba(255,255,255,0.1); color: #e0eaff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px; font-size: 12px; cursor: pointer;">
+              📋 Copy Token
+            </button>
+          </div>
+
+          <div id="q-entropy-meta" style="font-size: 10px; color: #8090b0; line-height: 1.5;">
+            Source: ANU Quantum Optics Lab (Vacuum Fluctuation)<br>
+            Entropy Bits: 256 bits | HKDF SHA3-256 Sharding: Active
+          </div>
+        </div>
+
         <!-- Recent Transactions -->
         <div class="section-head">Recent Transactions</div>
         <div class="tx-list" id="tx-list"></div>
