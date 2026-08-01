@@ -3,10 +3,18 @@ services:
     name: quantumpay-api
     env: python
     region: singapore
-    buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port 10000"
+    plan: free
+    buildCommand: "pip install --upgrade pip && pip install -r backend/requirements.txt"
+    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1"
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
       - key: SECRET_KEY
-        value: "quantumpay_prod_key_pqc_kyber768_dilithium3_2026"
+        generateValue: true
+      - key: TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: RATE_LIMIT_MAX
+        value: "60"
