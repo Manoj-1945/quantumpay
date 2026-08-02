@@ -564,3 +564,10 @@ async def b2b_sign_transaction(req: B2BTransactionPayload):
     
     proof = b2b_engine.generate_b2b_security_proof(req.partner_id, req.amount, req.customer_ref)
     return proof
+
+# --- NETLIFY SERVERLESS FUNCTION HANDLER ---
+try:
+    from mangum import Mangum
+    handler = Mangum(app)
+except ImportError:
+    pass
