@@ -112,7 +112,7 @@
     <div class="card">
       <h2>⚡ Live API Sandbox</h2>
       <p style="color:#8090b0;font-size:13px;margin-bottom:14px;">Test the B2B Quantum Security endpoint live:</p>
-      <pre>POST https://spontaneous-maamoul-f052ab.netlify.app/api/v1/b2b/sign-transaction</pre>
+      <pre>POST https://quantumpay-api-production.up.railway.app/api/v1/b2b/sign-transaction</pre>
       <button class="btn" id="test-btn" onclick="testB2BEndpoint()">⚡ Run Live Security Check</button>
       <div class="result-box" id="b2b-result" style="display:none;"></div>
     </div>
@@ -233,7 +233,7 @@ print(proof['quantum_proof_token'])</pre>
 </div>
 
 <script>
-  const API = 'https://spontaneous-maamoul-f052ab.netlify.app';
+  const API = 'https://quantumpay-api-production.up.railway.app';
   let txCount = 14832 + 8291 + 21047;
   let revenueRs = txCount * 0.05;
   let pingCount = 0;
