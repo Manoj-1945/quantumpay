@@ -1,0 +1,17 @@
+[build]
+  command = "pip install -r backend/requirements.txt"
+  functions = "backend"
+  publish = "."
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/main/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/"
+  to = "/b2b_portal.html"
+  status = 200
