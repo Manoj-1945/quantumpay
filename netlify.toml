@@ -1,17 +1,12 @@
 [build]
-  command = "pip install -r backend/b2b_requirements.txt"
   publish = "."
-
-[build.environment]
-  PYTHON_VERSION = "3.11"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/main/:splat"
-  status = 200
-  force = true
 
 [[redirects]]
   from = "/"
-  to = "/b2b_portal.html"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/b2b_portal.html"
+  to = "/index.html"
   status = 200
