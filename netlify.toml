@@ -1,2 +1,3 @@
 [build]
+  command = "echo 'Static HTML Build Complete'"
   publish = "."
