@@ -1,5 +1,5 @@
 [variables]
-PATH = "/opt/venv/bin:$PATH"
+PATH = "/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 [phases.setup]
 nixPkgs = ["python311", "gcc", "sqlite"]
@@ -7,12 +7,12 @@ nixPkgs = ["python311", "gcc", "sqlite"]
 [phases.install]
 cmds = [
   "python3.11 -m venv /opt/venv",
-  "/opt/venv/bin/pip install --upgrade pip",
-  "/opt/venv/bin/pip install -r backend/requirements.txt"
+  "pip install --upgrade pip",
+  "pip install -r backend/requirements.txt"
 ]
 
 [phases.build]
-cmds = ["echo 'Build phase complete'"]
+cmds = ["echo 'Build complete'"]
 
 [start]
-cmd = "PYTHONPATH=. /opt/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+cmd = "PYTHONPATH=. uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"
