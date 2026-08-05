@@ -1,17 +1,21 @@
+[variables]
+NIXPACKS_BUILD_CMD = "echo 'Build complete'"
+
 [phases.setup]
 nixPkgs = ["python311", "gcc", "sqlite"]
 
 [phases.install]
 cmds = [
   "python3.11 -m venv /opt/venv",
-  "ln -sf /opt/venv/bin/pip /usr/local/bin/pip",
-  "ln -sf /opt/venv/bin/python /usr/local/bin/python",
   "/opt/venv/bin/pip install --upgrade pip",
   "/opt/venv/bin/pip install -r backend/requirements.txt"
 ]
 
 [phases.build]
-cmds = ["echo 'Build complete'"]
+cmds = [
+  "/opt/venv/bin/pip install --upgrade pip",
+  "/opt/venv/bin/pip install -r backend/requirements.txt"
+]
 
 [start]
 cmd = "PYTHONPATH=. /opt/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"
