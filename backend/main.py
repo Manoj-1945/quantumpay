@@ -4,16 +4,17 @@ QuantumPay B2B Gateway API v3.6 - Hardened Production Release
 Architected by Manoj Kumar G K
 
 Production Hardening:
-1. Strict Transaction Amount Bounds (Rs 0.01 to Rs 1,00,000.00) & Input Sanitization
-2. Database Indexing for Key Pool Status (idx_key_pool_status for O(log N) speed)
-3. Per-Partner API Key Rate Limiting (1,000 req/min per X-QP-API-Key)
-4. Production CORS Policy Configuration
-5. HMAC-SHA256 Signed Real-Time Partner Webhook Engine
-6. Strict 60-Second Replay Attack Window Enforcer
-7. Real-Time Live WebSockets Metrics Endpoint (/ws/b2b/live-metrics)
-8. Kernel CSPRNG 256-Bit Secret Key Auto-Rotation Engine
-9. Physical IBM Quantum Hardware + Qiskit Superposition & GHZ Entanglement
-10. 1,200 Pre-Generated Quantum Circuit Key Pool Background Auto-Refiller
+1. Root Route GET / for Railway Healthcheck (200 OK)
+2. Strict Transaction Amount Bounds (Rs 0.01 to Rs 10,00,000.00) & Input Sanitization
+3. Database Indexing for Key Pool Status (idx_key_pool_status for O(log N) speed)
+4. Per-Partner API Key Rate Limiting (1,000 req/min per X-QP-API-Key)
+5. Production CORS Policy Configuration
+6. HMAC-SHA256 Signed Real-Time Partner Webhook Engine
+7. Strict 60-Second Replay Attack Window Enforcer
+8. Real-Time Live WebSockets Metrics Endpoint (/ws/b2b/live-metrics)
+9. Kernel CSPRNG 256-Bit Secret Key Auto-Rotation Engine
+10. Physical IBM Quantum Hardware + Qiskit Superposition & GHZ Entanglement
+11. 1,200 Pre-Generated Quantum Circuit Key Pool Background Auto-Refiller
 """
 
 import asyncio, hashlib, hmac, json, os, secrets, time, uuid, re
@@ -156,23 +157,10 @@ async def startup_event():
     await init_db()
     asyncio.create_task(refill_quantum_key_pool(1200))
 
-# --- WEBSOCKET LIVE METRICS STREAM ---
-@app.websocket("/ws/b2b/live-metrics")
-async def websocket_live_metrics(websocket: WebSocket):
-    await websocket.accept()
-    active_websocket_connections.append(websocket)
-    try:
-        while True:
-            metrics = await get_b2b_metrics()
-            await websocket.send_json(metrics)
-            await asyncio.sleep(2.0)
-    except WebSocketDisconnect:
-        active_websocket_connections.remove(websocket)
-    except Exception:
-        if websocket in active_websocket_connections:
-            active_websocket_connections.remove(websocket)
-
+# --- ROOT HEALTH CHECK ROUTE (FOR RAILWAY LOAD BALANCER HTTP 200) ---
+@app.get("/")
 @app.get("/health")
+@app.get("/healthcheck")
 async def health_check():
     return {
         "status": "HEALTHY",
@@ -190,6 +178,22 @@ async def health_check():
         },
         "timestamp": datetime.utcnow().isoformat()
     }
+
+# --- WEBSOCKET LIVE METRICS STREAM ---
+@app.websocket("/ws/b2b/live-metrics")
+async def websocket_live_metrics(websocket: WebSocket):
+    await websocket.accept()
+    active_websocket_connections.append(websocket)
+    try:
+        while True:
+            metrics = await get_b2b_metrics()
+            await websocket.send_json(metrics)
+            await asyncio.sleep(2.0)
+    except WebSocketDisconnect:
+        active_websocket_connections.remove(websocket)
+    except Exception:
+        if websocket in active_websocket_connections:
+            active_websocket_connections.remove(websocket)
 
 class PartnerRegisterRequest(BaseModel):
     partner_name: str
@@ -229,7 +233,6 @@ async def verify_partner_key(x_qp_api_key: Optional[str] = Header(None)) -> dict
     if not x_qp_api_key:
         x_qp_api_key = "qp_live_demo_9941a"
         
-    # Per-Partner Rate Limit Check (1,000 req/min)
     if not check_partner_rate_limit(x_qp_api_key):
         raise HTTPException(status_code=429, detail="Partner API rate limit exceeded (Max 1,000 requests/minute).")
     
@@ -274,7 +277,6 @@ async def sign_transaction(req: TransactionRequest, partner: dict = Depends(veri
     now_utc = time.time()
     req_time = req.timestamp_utc or now_utc
     
-    # 1. STRICT 60-SECOND REPLAY ATTACK WINDOW ENFORCER
     if abs(now_utc - req_time) > 60.0:
         raise HTTPException(
             status_code=403,
@@ -297,7 +299,6 @@ async def sign_transaction(req: TransactionRequest, partner: dict = Depends(veri
     
     canonical_hash = hashlib.sha3_256(canonical_payload.encode()).hexdigest().upper()
     
-    # 2. CANONICAL HASH UNIQUE REPLAY ENFORCER
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT tx_ref FROM b2b_transactions WHERE canonical_payload_hash = ?", (canonical_hash,)) as cur:
             if await cur.fetchone():
