@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 import httpx
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, Header, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -1082,7 +1082,7 @@ async def verify_token(req: VerifyTokenRequest):
             "message": "Token verified authentic against quantum security ledger."}
 
 @app.get("/api/v1/b2b/metrics")
-async def get_b2b_metrics():
+async def get_b2b_metrics(admin: str = Depends(get_admin_user)):
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT COUNT(*) FROM b2b_transactions") as c1: total_tx = (await c1.fetchone())[0]
         async with db.execute("SELECT COUNT(*) FROM b2b_partners WHERE is_active=1") as c2: total_partners = (await c2.fetchone())[0]
@@ -1101,7 +1101,9 @@ async def get_b2b_metrics():
             "fips_compliance": "FIPS 203 Level 5 (Kyber-1024) & FIPS 204 (Dilithium-3) Compliant"}
 
 @app.post("/api/v1/b2b/iso20022-convert")
-async def iso20022_convert(req: ISO20022Request):
+async def iso20022_convert(req: ISO20022Request, x_api_key: str = Header(None)):
+    if not x_api_key or not x_api_key.startswith("qp.b2b.v5."):
+        raise HTTPException(status_code=401, detail="Invalid API Key")
     q_bytes = await quantum.get_qrng_bytes(32)
     proof_token = f"qp.v50.ISO20022.{secrets.token_hex(8).upper()}.{q_bytes.hex()[:16].upper()}"
     msg_id = "QPISO" + datetime.utcnow().strftime("%Y%m%d%H%M%S")
@@ -1117,7 +1119,7 @@ async def iso20022_convert(req: ISO20022Request):
             "timestamp": datetime.utcnow()}
 
 @app.get("/api/v1/b2b/audit-export")
-async def audit_export():
+async def audit_export(admin: str = Depends(get_admin_user)):
     return {"certificate_id": f"CERT-RBI-NQM-V50-{secrets.token_hex(4).upper()}",
             "issuer": "QuantumPay Security Engine v5.0",
             "compliance_standards": ["ISO 20022 pacs.008", "NIST FIPS 203 Level 5",
