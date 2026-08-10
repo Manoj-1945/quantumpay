@@ -1,3 +1,11 @@
+
+function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  }[tag]));
+}
+
 'use strict';
 /* =====================================================
    QuantumPay — Payment App Logic
@@ -106,7 +114,7 @@ async function loadRealTransactions() {
       const dt      = new Date(t.created_at + 'Z').toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
       return `<div class="tx-item">
         <div class="tx-avatar" style="background:linear-gradient(135deg,${color}44,${color}88)"><span style="color:${color}">${init}</span></div>
-        <div style="flex:1"><div class="tx-name">${other}</div><div class="tx-note">${t.note || 'Payment'}</div><div class="tx-q">⚛ Quantum secured · ${t.quantum_token ? t.quantum_token.substring(0,14)+'...' : 'Token used'}</div></div>
+        <div style="flex:1"><div class="tx-name">${escapeHTML(other)}</div><div class="tx-note">${escapeHTML(t.note || 'Payment')}</div><div class="tx-q">⚛ Quantum secured · ${t.quantum_token ? t.quantum_token.substring(0,14)+'...' : 'Token used'}</div></div>
         <div class="tx-amount"><div class="tx-val ${isOut ? 'neg' : 'pos'}">${amt}</div><div class="tx-time">${dt}</div></div>
       </div>`;
     }).join('');
@@ -396,8 +404,8 @@ function buildTransactions() {
         <span style="color:${t.color}">${t.init}</span>
       </div>
       <div style="flex:1">
-        <div class="tx-name">${t.name}</div>
-        <div class="tx-note">${t.note}</div>
+        <div class="tx-name">${escapeHTML(t.name)}</div>
+        <div class="tx-note">${escapeHTML(t.note)}</div>
         ${t.q ? '<div class="tx-q">⚛ Quantum secured</div>' : ''}
       </div>
       <div class="tx-amount">
