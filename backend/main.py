@@ -25,6 +25,7 @@ from typing import Optional, List
 
 import httpx
 from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel
@@ -1046,6 +1047,18 @@ async def audit_export():
                 "attacks_blocked_counter": "Real DB count from threat_log"},
             "status": "LEVEL_5_ISO20022_V50_DEFENSE_COMPLIANT",
             "timestamp": datetime.utcnow().isoformat()}
+
+
+# --- STATIC FILE SERVING ---------------------------------------------------
+# Serves login.html, pay.html, admin.html, shield.html, pitch.html,
+# tos.html, privacy.html, pay.js, pay.css and all other static assets.
+# FastAPI API routes defined above always take priority over static files.
+# The Dockerfile already copies all files via COPY . . so they exist in /app.
+try:
+    app.mount("/", StaticFiles(directory=".", html=True), name="static")
+    print("[OK] Static file server mounted at / — all HTML/CSS/JS files accessible")
+except Exception as e:
+    print(f"[WARN] StaticFiles mount failed: {e} — serving API only")
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
