@@ -1,3 +1,11 @@
+
+function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  }[tag]));
+}
+
 'use strict';
 /* QuantumShield — Security Dashboard Logic */
 
@@ -83,8 +91,8 @@ function buildEmployeeTable() {
   tbody.innerHTML = employees.map(e => {
     const scoreColor = e.score > 20 ? 'var(--pink)' : e.score > 10 ? 'var(--yellow)' : 'var(--green)';
     return `<tr>
-      <td><strong>${e.name}</strong></td>
-      <td style="color:var(--dim);font-size:0.75rem">${e.role}</td>
+      <td><strong>${escapeHTML(e.name)}</strong></td>
+      <td style="color:var(--dim);font-size:0.75rem">${escapeHTML(e.role)}</td>
       <td><span class="status-pill ${e.access === 'Admin' ? 'risk' : 'safe'}">${e.access}</span></td>
       <td style="color:var(--dim);font-size:0.75rem">${e.last}</td>
       <td><span style="font-family:'Space Mono',monospace;color:${scoreColor};font-weight:700">${e.score}</span>/100</td>
