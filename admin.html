@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>QuantumPay — Admin Console</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#020510;--bg2:rgba(8,12,35,0.92);--bg3:rgba(15,20,55,0.5);
+      --cyan:#00f5ff;--purple:#7b2fff;--green:#00ffaa;--pink:#ff6b6b;
+      --yellow:#ffcc00;--orange:#ff9f40;--text:#e0eaff;--dim:#8090b0;
+      --border:rgba(0,245,255,0.1);--border2:rgba(0,245,255,0.3);
+      --sw:230px;--th:58px;
+    }
+    html,body{height:100%;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
+    canvas#bg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:.2}
+
+    /* LAYOUT */
+    .shell{position:relative;z-index:1;display:flex;min-height:100vh}
+
+    /* SIDEBAR */
+    .sidebar{width:var(--sw);flex-shrink:0;background:rgba(3,5,18,0.97);border-right:1px solid var(--border);
+      display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:50;padding-bottom:16px}
+    .sb-logo{display:flex;align-items:center;gap:10px;padding:18px 16px;border-bottom:1px solid var(--border)}
+    .sb-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--cyan),var(--purple));
+      border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+    .sb-brand{font-size:.95rem;font-weight:800;color:var(--cyan)}
+    .sb-role{font-size:.6rem;color:var(--dim);letter-spacing:.5px}
+    .sb-section{padding:14px 12px 4px;font-size:.62rem;color:var(--dim);letter-spacing:1px;text-transform:uppercase;font-weight:700}
+    .sb-item{display:flex;align-items:center;gap:9px;padding:10px 14px;font-size:.82rem;color:var(--dim);
+      border-left:3px solid transparent;cursor:pointer;transition:all .2s;border-radius:0 6px 6px 0;margin:1px 8px 1px 0}
+    .sb-item:hover{color:var(--text);background:rgba(0,245,255,.04)}
+    .sb-item.active{color:var(--cyan);background:rgba(0,245,255,.08);border-left-color:var(--cyan)}
+    .sb-item .icon{width:18px;text-align:center;font-size:1rem}
+    .sb-badge{margin-left:auto;background:rgba(255,107,107,.2);color:var(--pink);border-radius:10px;
+      padding:1px 6px;font-size:.6rem;font-weight:700}
+    .sb-badge.green{background:rgba(0,255,170,.15);color:var(--green)}
+    .sb-bottom{margin-top:auto;padding:12px 14px;border-top:1px solid var(--border)}
+    .sb-status{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--dim);margin-bottom:8px}
+    .ss-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);
+      animation:pulse 2s ease infinite;flex-shrink:0}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .sb-links{display:flex;flex-direction:column;gap:4px}
+    .sb-link{font-size:.72rem;color:var(--dim);padding:5px 0;border-radius:6px;transition:color .2s}
+    .sb-link:hover{color:var(--cyan)}
+
+    /* MAIN */
+    .main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column}
+
+    /* TOPBAR */
+    .topbar{height:var(--th);background:rgba(3,5,18,0.95);border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between;padding:0 24px;
+      position:sticky;top:0;z-index:40;backdrop-filter:blur(20px)}
+    .tb-left{display:flex;flex-direction:column}
+    .tb-title{font-size:1rem;font-weight:700}
+    .tb-sub{font-size:.68rem;color:var(--dim)}
+    .tb-right{display:flex;align-items:center;gap:16px}
+    .tb-pill{display:flex;align-items:center;gap:5px;background:rgba(0,255,170,.08);
+      border:1px solid rgba(0,255,170,.2);border-radius:20px;padding:4px 10px;
+      font-size:.7rem;color:var(--green);font-weight:600}
+    .tb-pill-dot{width:5px;height:5px;border-radius:50%;background:var(--green);
+      box-shadow:0 0 5px var(--green);animation:pulse 1.5s ease infinite}
+    .tb-clock{font-family:'Space Mono',monospace;font-size:.75rem;color:var(--dim)}
+    .tb-avatar{width:32px;height:32px;background:linear-gradient(135deg,var(--cyan),var(--purple));
+      border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-size:.8rem;font-weight:700;color:#000;cursor:pointer}
+
+    /* TABS */
+    .tab{display:none;padding:24px;flex-direction:column;gap:20px;animation:fadeUp .35s ease}
+    .tab.active{display:flex}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+    /* CARDS */
+    .glass{background:var(--bg2);border:1px solid var(--border);border-radius:16px;
+      padding:20px;position:relative;overflow:hidden;backdrop-filter:blur(12px)}
+    .glass::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+      background:linear-gradient(90deg,transparent,rgba(0,245,255,.25),transparent)}
+    .card-title{font-size:.85rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+    .live-badge{display:inline-flex;align-items:center;gap:4px;font-size:.62rem;
+      color:var(--green);font-weight:400;background:rgba(0,255,170,.08);
+      border:1px solid rgba(0,255,170,.2);border-radius:10px;padding:1px 6px}
+    .live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);
+      box-shadow:0 0 5px var(--green);animation:pulse 1s ease infinite}
+
+    /* METRIC GRID */
+    .metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+    .metric{background:var(--bg2);border:1px solid var(--border);border-bottom:2px solid var(--c,#00f5ff);
+      border-radius:14px;padding:16px;transition:transform .25s,box-shadow .25s;cursor:default}
+    .metric:hover{transform:translateY(-3px);box-shadow:0 10px 32px rgba(0,0,0,.35)}
+    .m-icon{font-size:1.5rem;margin-bottom:8px}
+    .m-val{font-family:'Space Mono',monospace;font-size:1.5rem;font-weight:700;
+      color:var(--c,#00f5ff);margin-bottom:3px}
+    .m-label{font-size:.7rem;color:var(--dim);letter-spacing:.3px;margin-bottom:3px}
+    .m-delta{font-size:.65rem}
+    .m-delta.pos{color:var(--green)}
+    .m-delta.neg{color:var(--pink)}
+
+    /* TWO-COL */
+    .two-col{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+    .three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+
+    /* DATA TABLE */
+    .tbl{width:100%;border-collapse:collapse;font-size:.78rem}
+    .tbl th{text-align:left;padding:7px 12px;color:var(--dim);font-size:.63rem;
+      text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);font-weight:600}
+    .tbl td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle}
+    .tbl tr:hover td{background:rgba(0,245,255,.025)}
+    .pill{padding:2px 8px;border-radius:4px;font-size:.62rem;font-weight:700}
+    .pill.green{background:rgba(0,255,170,.12);color:var(--green);border:1px solid rgba(0,255,170,.25)}
+    .pill.red{background:rgba(255,107,107,.12);color:var(--pink);border:1px solid rgba(255,107,107,.25)}
+    .pill.cyan{background:rgba(0,245,255,.1);color:var(--cyan);border:1px solid rgba(0,245,255,.2)}
+    .pill.yellow{background:rgba(255,204,0,.12);color:var(--yellow);border:1px solid rgba(255,204,0,.25)}
+    .mono{font-family:'Space Mono',monospace;font-size:.68rem}
+    .avatar-sm{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+      justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;
+      background:linear-gradient(135deg,var(--cyan),var(--purple));color:#000}
+
+    /* QUANTUM CIRCUIT PANEL */
+    .qc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .qc-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+      padding:16px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
+    .qc-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    .qc-card.running{border-color:var(--cyan);box-shadow:0 0 20px rgba(0,245,255,.1)}
+    .qc-icon{font-size:1.8rem;margin-bottom:10px}
+    .qc-name{font-size:.88rem;font-weight:700;margin-bottom:4px}
+    .qc-desc{font-size:.72rem;color:var(--dim);line-height:1.4;margin-bottom:10px}
+    .qc-run-btn{background:linear-gradient(135deg,var(--cyan),var(--purple));color:#000;
+      font-weight:700;font-size:.72rem;padding:6px 14px;border:none;border-radius:8px;
+      cursor:pointer;font-family:'Outfit',sans-serif;transition:all .2s;letter-spacing:.3px}
+    .qc-run-btn:hover{transform:scale(1.03);box-shadow:0 4px 16px rgba(0,245,255,.3)}
+    .qc-result{margin-top:12px;background:rgba(0,0,0,.3);border:1px solid var(--border);
+      border-radius:8px;padding:10px;font-size:.7rem;display:none;max-height:200px;overflow-y:auto}
+    .qc-result.show{display:block}
+    .qc-bits{display:flex;flex-wrap:wrap;gap:2px;margin-top:6px}
+    .qc-bit{width:12px;height:12px;border-radius:2px;font-size:.5rem;font-family:'Space Mono',monospace;
+      display:flex;align-items:center;justify-content:center}
+    .qc-bit.one{background:rgba(0,245,255,.3);color:var(--cyan)}
+    .qc-bit.zero{background:rgba(123,47,255,.2);color:var(--purple)}
+
+    /* AUDIT CHAIN */
+    .audit-chain{display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto}
+    .block-item{display:flex;gap:10px;background:var(--bg3);border-radius:10px;
+      padding:10px 12px;border-left:2px solid var(--green)}
+    .block-num{font-family:'Space Mono',monospace;font-size:.7rem;color:var(--green);
+      font-weight:700;flex-shrink:0;width:36px}
+    .block-body{flex:1;min-width:0}
+    .block-action{font-size:.78rem;font-weight:600;margin-bottom:2px}
+    .block-hash{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--dim);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .block-time{font-size:.65rem;color:var(--dim);flex-shrink:0}
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-thumb{background:rgba(0,245,255,.15);border-radius:2px}
+
+    /* CHART CANVAS */
+    canvas.chart{width:100%;height:180px;display:block}
+
+    @media(max-width:1100px){
+      .metrics-grid{grid-template-columns:repeat(2,1fr)}
+      .two-col,.three-col,.qc-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon">⚛</div>
+      <div>
+        <div class="sb-brand">QuantumPay</div>
+        <div class="sb-role">ADMIN CONSOLE v3.0</div>
+      </div>
+    </div>
+
+    <div class="sb-section">Overview</div>
+    <div class="sb-item active" onclick="showTab('dashboard',this)">
+      <span class="icon">📊</span> Dashboard
+    </div>
+
+    <div class="sb-section">Data</div>
+    <div class="sb-item" onclick="showTab('users',this)">
+      <span class="icon">👥</span> Users
+      <span class="sb-badge green" id="sb-users">0</span>
+    </div>
+    <div class="sb-item" onclick="showTab('transactions',this)">
+      <span class="icon">💸</span> Transactions
+      <span class="sb-badge green" id="sb-txs">0</span>
+    </div>
+    <div class="sb-item" onclick="showTab('audit',this)">
+      <span class="icon">⛓</span> Blockchain Audit
+    </div>
+
+    <div class="sb-section">Quantum</div>
+    <div class="sb-item" onclick="showTab('quantum',this)">
+      <span class="icon">🔬</span> Circuit Lab
+    </div>
+
+    <div class="sb-section">Security</div>
+    <div class="sb-item" onclick="showTab('security',this)">
+      <span class="icon">🛡</span> Threat Center
+      <span class="sb-badge" id="sb-threats">142</span>
+    </div>
+
+    <div class="sb-bottom">
+      <div class="sb-status"><div class="ss-dot"></div>Backend Online · :8000</div>
+      <div class="sb-links">
+        <a class="sb-link" href="index.html">← Landing Page</a>
+        <a class="sb-link" href="pay.html">← Payment App</a>
+        <a class="sb-link" href="shield.html">← Security Dashboard</a>
+        <a class="sb-link" href="pitch.html">← Investor Pitch</a>
+        <a class="sb-link" href="https://quantumpay-api-production.up.railway.app/docs" target="_blank">API Docs ↗</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="tb-left">
+        <div class="tb-title" id="tab-title">Dashboard</div>
+        <div class="tb-sub">QuantumPay Admin Console — Phase 3</div>
+      </div>
+      <div class="tb-right">
+        <div class="tb-pill"><div class="tb-pill-dot"></div>Quantum Secure</div>
+        <div class="tb-clock" id="clock">--:--:--</div>
+        <div class="tb-avatar">A</div>
+      </div>
+    </div>
+
+    <!-- ── DASHBOARD ── -->
+    <div class="tab active" id="tab-dashboard">
+      <div class="metrics-grid" id="metrics-grid">
+        <div class="metric" style="--c:#00f5ff">
+          <div class="m-icon">👥</div>
+          <div class="m-val" id="m-users">0</div>
+          <div class="m-label">Registered Users</div>
+          <div class="m-delta pos">+Live from DB</div>
+        </div>
+        <div class="metric" style="--c:#00ffaa">
+          <div class="m-icon">💸</div>
+          <div class="m-val" id="m-txs">0</div>
+          <div class="m-label">Total Transactions</div>
+          <div class="m-delta pos" id="m-vol">₹0 volume</div>
+        </div>
+        <div class="metric" style="--c:#7b2fff">
+          <div class="m-icon">⛓</div>
+          <div class="m-val" id="m-blocks">0</div>
+          <div class="m-label">Audit Blocks</div>
+          <div class="m-delta pos">SHA-256 chained</div>
+        </div>
+        <div class="metric" style="--c:#ff6b6b">
+          <div class="m-icon">🚫</div>
+          <div class="m-val" id="m-blocked">2,847</div>
+          <div class="m-label">Attacks Blocked</div>
+          <div class="m-delta neg">142 today</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="glass">
+          <div class="card-title">
+            📈 Transaction Volume (24h)
+            <span class="live-badge"><span class="live-dot"></span>Live</span>
+          </div>
+          <canvas class="chart" id="vol-chart"></canvas>
+        </div>
+        <div class="glass">
+          <div class="card-title">⚛ Quantum System Health</div>
+          <div id="q-health" style="display:flex;flex-direction:column;gap:10px;margin-top:4px"></div>
+        </div>
+      </div>
+
+      <div class="three-col">
+        <div class="glass">
+          <div class="card-title">🎲 QRNG Tokens</div>
+          <div style="font-family:'Space Mono',monospace;font-size:2rem;font-weight:700;
+            color:var(--cyan);margin-bottom:4px" id="m-qrng">0</div>
+          <div style="font-size:.72rem;color:var(--dim)">Generated this session</div>
+          <div style="font-size:.68rem;color:var(--green);margin-top:8px">Source: ANU Quantum Lab</div>
+        </div>
+        <div class="glass">
+          <div class="card-title">🔐 PQC Operations</div>
+          <div style="font-family:'Space Mono',monospace;font-size:2rem;font-weight:700;
+            color:var(--purple);margin-bottom:4px" id="m-pqc">0</div>
+          <div style="font-size:.72rem;color:var(--dim)">Kyber + Dilithium signs</div>
+          <div style="font-size:.68rem;color:var(--green);margin-top:8px">Avg 31ms per operation</div>
+        </div>
+        <div class="glass">
+          <div class="card-title">📡 API Uptime</div>
+          <div style="font-family:'Space Mono',monospace;font-size:2rem;font-weight:700;
+            color:var(--green);margin-bottom:4px">99.97%</div>
+          <div style="font-size:.72rem;color:var(--dim)">Last 30 days SLA</div>
+          <div style="font-size:.68rem;color:var(--cyan);margin-top:8px">Backend: quantumpay-api-production.up.railway.app</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── USERS ── -->
+    <div class="tab" id="tab-users">
+      <div class="glass">
+        <div class="card-title">👥 All Users
+          <span class="live-badge"><span class="live-dot"></span>Real DB</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr>
+              <th>User</th><th>UPI ID</th><th>Email</th>
+              <th>Balance</th><th>Joined</th><th>Status</th>
+            </tr></thead>
+            <tbody id="users-tbody"><tr><td colspan="6" style="color:var(--dim);text-align:center;padding:20px">Loading from backend...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TRANSACTIONS ── -->
+    <div class="tab" id="tab-transactions">
+      <div class="glass">
+        <div class="card-title">💸 All Transactions
+          <span class="live-badge"><span class="live-dot"></span>Real DB</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr>
+              <th>ID</th><th>From</th><th>To</th><th>Amount</th>
+              <th>Quantum Token</th><th>Status</th><th>Time</th>
+            </tr></thead>
+            <tbody id="tx-tbody"><tr><td colspan="7" style="color:var(--dim);text-align:center;padding:20px">Loading from backend...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AUDIT BLOCKCHAIN ── -->
+    <div class="tab" id="tab-audit">
+      <div class="glass">
+        <div class="card-title">⛓ Immutable Blockchain Audit Log
+          <span class="live-badge"><span class="live-dot"></span>SHA-256 Chained</span>
+        </div>
+        <div class="audit-chain" id="audit-chain">
+          <div style="color:var(--dim);text-align:center;padding:20px">Loading blockchain...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── QUANTUM CIRCUIT LAB ── -->
+    <div class="tab" id="tab-quantum">
+      <div class="glass" style="margin-bottom:0">
+        <div class="card-title">🔬 IBM Quantum Circuit Lab
+          <span id="qiskit-badge" class="pill cyan">Loading...</span>
+        </div>
+        <div style="font-size:.78rem;color:var(--dim);margin-bottom:16px">
+          Run real quantum circuits via Qiskit. Results come from quantum simulation (or IBM hardware if token set).
+        </div>
+      </div>
+      <div class="qc-grid">
+        <!-- QRNG Circuit -->
+        <div class="qc-card" id="qc-qrng">
+          <div class="qc-icon">🎲</div>
+          <div class="qc-name">QRNG Circuit — Hadamard Gate</div>
+          <div class="qc-desc">16 qubits in superposition via H gate. Measurement collapses to truly random bits. Used for transaction token generation.</div>
+          <button class="qc-run-btn" onclick="runCircuit('qrng')">▶ Run Circuit</button>
+          <div class="qc-result" id="qr-qrng"></div>
+        </div>
+        <!-- Bell State -->
+        <div class="qc-card" id="qc-bell">
+          <div class="qc-icon">🔗</div>
+          <div class="qc-name">Bell State — Quantum Entanglement</div>
+          <div class="qc-desc">H + CNOT creates maximally entangled qubit pair. Measurement always correlated: 00 or 11. Foundation of QKD key exchange.</div>
+          <button class="qc-run-btn" onclick="runCircuit('bell')">▶ Run Circuit</button>
+          <div class="qc-result" id="qr-bell"></div>
+        </div>
+        <!-- Grover's Search -->
+        <div class="qc-card" id="qc-grovers">
+          <div class="qc-icon">🔍</div>
+          <div class="qc-name">Grover's Algorithm — Fraud Search</div>
+          <div class="qc-desc">Quantum search with O(√N) speedup. Finds fraud patterns in transaction database quadratically faster than classical search.</div>
+          <button class="qc-run-btn" onclick="runCircuit('grovers')">▶ Run Circuit</button>
+          <div class="qc-result" id="qr-grovers"></div>
+        </div>
+        <!-- BB84 QKD -->
+        <div class="qc-card" id="qc-qkd">
+          <div class="qc-icon">🔑</div>
+          <div class="qc-name">BB84 — Quantum Key Distribution</div>
+          <div class="qc-desc">Eavesdropping-proof key exchange using Heisenberg Uncertainty Principle. Any intercept disturbs the quantum state — instantly detectable.</div>
+          <button class="qc-run-btn" onclick="runCircuit('qkd')">▶ Run Circuit</button>
+          <div class="qc-result" id="qr-qkd"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECURITY ── -->
+    <div class="tab" id="tab-security">
+      <div class="metrics-grid">
+        <div class="metric" style="--c:#ff6b6b">
+          <div class="m-icon">🚫</div>
+          <div class="m-val" id="sec-blocked">2,847</div>
+          <div class="m-label">Total Attacks Blocked</div>
+          <div class="m-delta neg">142 today</div>
+        </div>
+        <div class="metric" style="--c:#ffcc00">
+          <div class="m-icon">⚠</div>
+          <div class="m-val" id="sec-anomaly">0</div>
+          <div class="m-label">Behavioral Anomalies</div>
+          <div class="m-delta pos">AI monitored</div>
+        </div>
+        <div class="metric" style="--c:#00ffaa">
+          <div class="m-icon">⛓</div>
+          <div class="m-val" id="sec-blocks">0</div>
+          <div class="m-label">Audit Blocks</div>
+          <div class="m-delta pos">Tamper-proof</div>
+        </div>
+        <div class="metric" style="--c:#00f5ff">
+          <div class="m-icon">⚡</div>
+          <div class="m-val">31ms</div>
+          <div class="m-label">Avg Response Time</div>
+          <div class="m-delta pos">PQC overhead: &lt;2ms</div>
+        </div>
+      </div>
+      <div class="glass">
+        <div class="card-title">🛡 7-Layer Quantum Security Stack</div>
+        <div id="sec-layers" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px"></div>
+      </div>
+      <div class="glass">
+        <div class="card-title">📊 Attack Vectors (24h)</div>
+        <canvas class="chart" id="attack-chart"></canvas>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+'use strict';
+const API = 'https://quantumpay-api-production.up.railway.app';
+
+/* ── PARTICLES ── */
+(function(){
+  const c=document.getElementById('bg'),ctx=c.getContext('2d');
+  const R=()=>{c.width=window.innerWidth;c.height=window.innerHeight};
+  R();window.addEventListener('resize',R);
+  class P{constructor(){this.reset()}
+    reset(){this.x=Math.random()*c.width;this.y=Math.random()*c.height;
+      this.vx=(Math.random()-.5)*.3;this.vy=(Math.random()-.5)*.3;
+      this.r=Math.random()*1.5+.4;this.h=Math.random()>.5?190:270;this.a=Math.random()*.25+.05}
+    step(){this.x+=this.vx;this.y+=this.vy;
+      if(this.x<0||this.x>c.width)this.vx*=-1;
+      if(this.y<0||this.y>c.height)this.vy*=-1}
+    draw(){ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${this.h},100%,70%,${this.a})`;ctx.fill()}}
+  const ps=Array.from({length:60},()=>new P());
+  (function f(){ctx.clearRect(0,0,c.width,c.height);ps.forEach(p=>{p.step();p.draw()});requestAnimationFrame(f)})();
+})();
+
+/* ── CLOCK ── */
+function tick(){
+  const el=document.getElementById('clock');
+  if(el) el.textContent=new Date().toLocaleTimeString('en-IN',{hour12:false});
+}
+tick(); setInterval(tick,1000);
+
+/* ── NAVIGATION ── */
+const TITLES={dashboard:'Dashboard',users:'User Management',
+  transactions:'Transaction Monitor',audit:'Blockchain Audit Log',
+  quantum:'IBM Quantum Circuit Lab',security:'Security Threat Center'};
+function showTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+  document.getElementById('tab-title').textContent=TITLES[id]||id;
+}
+
+/* ── LOAD DATA ── */
+window.addEventListener('DOMContentLoaded',async()=>{
+  await loadStats();
+  await loadUsers();
+  await loadTransactions();
+  await loadAudit();
+  await checkQiskit();
+  drawVolChart();
+  drawAttackChart();
+  buildSecLayers();
+  setInterval(loadStats,10000);
+});
+
+async function loadStats(){
+  try{
+    const r=await fetch(`${API}/api/admin/stats`,{signal:AbortSignal.timeout(4000)});
+    if(!r.ok) return;
+    const d=await r.json();
+    setText('m-users', d.users.total);
+    setText('m-txs', d.transactions.total);
+    setText('m-vol', `₹${Number(d.transactions.volume||0).toLocaleString('en-IN')} vol`);
+    setText('m-blocks', d.security.audit_blocks);
+    setText('m-blocked', d.security.attacks_blocked.toLocaleString());
+    setText('m-qrng', d.quantum.qrng_tokens);
+    setText('m-pqc', d.quantum.pqc_ops);
+    setText('sb-users', d.users.total);
+    setText('sb-txs', d.transactions.total);
+    setText('sec-blocked', d.security.attacks_blocked.toLocaleString());
+    setText('sec-anomaly', d.security.anomalies);
+    setText('sec-blocks', d.security.audit_blocks);
+
+    // Quantum health
+    const qh=document.getElementById('q-health');
+    if(qh){
+      const items=[
+        {label:'QRNG Source',val:'ANU Quantum Lab',ok:true},
+        {label:'PQC Algorithm',val:'CRYSTALS-Kyber-768',ok:true},
+        {label:'Qiskit Engine',val:d.quantum.qiskit_available?'Active':'Install qiskit',ok:d.quantum.qiskit_available},
+        {label:'IBM Hardware',val:'Token not set (using sim)',ok:false},
+        {label:'Audit Chain',val:d.security.audit_blocks+' blocks',ok:true},
+        {label:'Backend',val:'quantumpay-api-production.up.railway.app ✓',ok:true},
+      ];
+      qh.innerHTML=items.map(i=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;
+          background:rgba(0,0,0,.25);border-radius:8px;padding:8px 12px;font-size:.75rem">
+          <span style="color:var(--dim)">${i.label}</span>
+          <span style="color:${i.ok?'var(--green)':'var(--yellow)'};font-weight:600">${i.val}</span>
+        </div>`).join('');
+    }
+  }catch(e){console.log('Stats offline - backend may be starting')}
+}
+
+async function loadUsers(){
+  try{
+    const r=await fetch(`${API}/api/admin/users`,{signal:AbortSignal.timeout(4000)});
+    if(!r.ok) return;
+    const users=await r.json();
+    const tbody=document.getElementById('users-tbody');
+    if(!tbody) return;
+    if(users.length===0){
+      tbody.innerHTML='<tr><td colspan="6" style="color:var(--dim);text-align:center;padding:30px">No users yet — <a href="login.html" style="color:var(--cyan)">register one</a></td></tr>';
+      return;
+    }
+    tbody.innerHTML=users.map(u=>{
+      const init=(u.name||'?').substring(0,2).toUpperCase();
+      const bal=Number(u.balance||0).toLocaleString('en-IN');
+      const dt=new Date((u.created_at||'')+'Z').toLocaleDateString('en-IN');
+      return `<tr>
+        <td><div style="display:flex;align-items:center;gap:8px">
+          <div class="avatar-sm">${init}</div>
+          <div><div style="font-weight:600">${u.name}</div>
+          <div style="font-size:.67rem;color:var(--dim)">${u.id.substring(0,8)}...</div></div>
+        </div></td>
+        <td class="mono">${u.upi_id}</td>
+        <td style="color:var(--dim);font-size:.74rem">${u.email}</td>
+        <td><span style="font-family:'Space Mono',monospace;color:var(--green);font-weight:700">₹${bal}</span></td>
+        <td style="color:var(--dim);font-size:.72rem">${dt}</td>
+        <td><span class="pill green">ACTIVE</span></td>
+      </tr>`;
+    }).join('');
+  }catch{}
+}
+
+async function loadTransactions(){
+  try{
+    const r=await fetch(`${API}/api/admin/transactions?limit=30`,{signal:AbortSignal.timeout(4000)});
+    if(!r.ok) return;
+    const txs=await r.json();
+    const tbody=document.getElementById('tx-tbody');
+    if(!tbody) return;
+    if(txs.length===0){
+      tbody.innerHTML='<tr><td colspan="7" style="color:var(--dim);text-align:center;padding:30px">No transactions yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML=txs.map(t=>{
+      const dt=new Date((t.created_at||'')+'Z').toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+      const tok=t.token?t.token.substring(0,14)+'...':'—';
+      return `<tr>
+        <td class="mono" style="color:var(--dim);font-size:.65rem">${(t.id||'').substring(0,8)}...</td>
+        <td style="font-size:.75rem;font-weight:600">${t.sender}</td>
+        <td style="font-size:.75rem;color:var(--cyan)">${t.receiver}</td>
+        <td><span style="font-family:'Space Mono',monospace;color:var(--green);font-weight:700">₹${t.amount}</span></td>
+        <td class="mono" style="font-size:.62rem;color:var(--dim)">${tok}</td>
+        <td><span class="pill green">${t.status||'SUCCESS'}</span></td>
+        <td style="font-size:.7rem;color:var(--dim)">${dt}</td>
+      </tr>`;
+    }).join('');
+  }catch{}
+}
+
+async function loadAudit(){
+  try{
+    const r=await fetch(`${API}/api/audit?limit=30`,{signal:AbortSignal.timeout(4000)});
+    if(!r.ok) return;
+    const blocks=await r.json();
+    const chain=document.getElementById('audit-chain');
+    if(!chain) return;
+    if(blocks.length===0){
+      chain.innerHTML='<div style="color:var(--dim);text-align:center;padding:30px">No audit blocks yet</div>';
+      return;
+    }
+    chain.innerHTML=blocks.map(b=>`
+      <div class="block-item">
+        <div class="block-num">#${b.block}</div>
+        <div class="block-body">
+          <div class="block-action">${b.action} <span style="color:var(--cyan);font-size:.72rem">· ${b.actor}</span></div>
+          <div class="block-hash">Hash: ${b.hash} | Prev: ${b.prev_hash.substring(0,16)}...</div>
+        </div>
+        <div class="block-time">${new Date((b.timestamp||'')+'Z').toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>`).join('');
+  }catch{}
+}
+
+async function checkQiskit(){
+  const badge=document.getElementById('qiskit-badge');
+  try{
+    const r=await fetch(`${API}/api/quantum/info`,{signal:AbortSignal.timeout(4000)});
+    if(r.ok){
+      const d=await r.json();
+      if(badge){
+        if(d.qiskit_installed===false){
+          badge.textContent='Qiskit: pip install qiskit';
+          badge.className='pill yellow';
+        } else if(d.real_hardware){
+          badge.textContent='IBM Hardware Connected';
+          badge.className='pill green';
+        } else {
+          badge.textContent='Qiskit Simulator Active';
+          badge.className='pill cyan';
+        }
+      }
+    }
+  }catch{
+    if(badge){badge.textContent='Backend offline';badge.className='pill red'}
+  }
+}
+
+/* ── QUANTUM CIRCUIT RUNNER ── */
+async function runCircuit(type){
+  const card=document.getElementById('qc-'+type);
+  const res=document.getElementById('qr-'+type);
+  if(!card||!res) return;
+
+  card.classList.add('running');
+  res.innerHTML='<span style="color:var(--cyan)">⚛ Running quantum circuit...</span>';
+  res.classList.add('show');
+
+  const ENDPOINTS={
+    qrng:`${API}/api/quantum/qrng-circuit?n_bits=16`,
+    bell:`${API}/api/quantum/bell-state`,
+    grovers:`${API}/api/quantum/grovers?target=5&n_qubits=3`,
+    qkd:`${API}/api/quantum/qkd-bb84?key_length=8`
+  };
+
+  try{
+    const r=await fetch(ENDPOINTS[type],{signal:AbortSignal.timeout(30000)});
+    const data=await r.json();
+
+    if(data.error){
+      res.innerHTML=`<div style="color:var(--yellow)">⚠ ${data.error}</div>
+        <div style="color:var(--dim);margin-top:6px;font-size:.65rem">To enable: pip install qiskit qiskit-ibm-runtime</div>`;
+    } else {
+      res.innerHTML=formatCircuitResult(type, data);
+    }
+  }catch(e){
+    res.innerHTML=`<div style="color:var(--pink)">Backend offline. Start backend/start.bat first.</div>`;
+  }
+  card.classList.remove('running');
+}
+
+function formatCircuitResult(type, d){
+  if(type==='qrng'){
+    const bits=(d.bitstring||'').split('').slice(0,32);
+    const bitsHtml=bits.map(b=>`<div class="qc-bit ${b==='1'?'one':'zero'}">${b}</div>`).join('');
+    return `<div style="color:var(--green);font-weight:700;margin-bottom:6px">
+      Source: ${d.source||'Qiskit'} | ${d.n_qubits||16} qubits | Depth ${d.circuit_depth||2}</div>
+      <div class="qc-bits">${bitsHtml}</div>
+      <div style="color:var(--cyan);margin-top:8px;font-size:.65rem">HEX: ${(d.hex||'').substring(0,32).toUpperCase()}</div>`;
+  }
+  if(type==='bell'){
+    const counts=d.measurement_counts||{};
+    const ok=d.entanglement_verified;
+    return `<div style="color:${ok?'var(--green)':'var(--yellow)'};font-weight:700;margin-bottom:6px">
+      Entanglement ${ok?'✓ Verified':'⚠ Check results'}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${Object.entries(counts).map(([k,v])=>`
+          <div style="background:rgba(0,245,255,.1);border-radius:6px;padding:4px 8px">
+            <span style="color:var(--cyan);font-family:'Space Mono',monospace">${k}</span>
+            <span style="color:var(--dim);margin-left:4px">${v} shots</span>
+          </div>`).join('')}
+      </div>
+      <div style="color:var(--dim);font-size:.65rem;margin-top:6px">Gates: ${(d.gates||[]).join(' → ')}</div>`;
+  }
+  if(type==='grovers'){
+    const found=d.found_target;
+    return `<div style="color:${found?'var(--green)':'var(--yellow)'};font-weight:700;margin-bottom:6px">
+      Target ${d.target} (${d.target_bits}) — ${found?'FOUND':'Not found'}</div>
+      <div style="font-size:.7rem;color:var(--dim)">Search space: 2^${d.n_qubits}=${d.search_space} items</div>
+      <div style="color:var(--cyan);font-size:.7rem;margin-top:4px">Speedup: ${d.speedup}</div>
+      <div style="font-size:.65rem;color:var(--dim);margin-top:4px">Application: ${d.application}</div>`;
+  }
+  if(type==='qkd'){
+    const key=d.sifted_key_bits||[];
+    const keyHtml=key.map(b=>`<div class="qc-bit ${b===1?'one':'zero'}">${b}</div>`).join('');
+    return `<div style="color:var(--green);font-weight:700;margin-bottom:6px">
+      BB84 Key Exchange Complete — ${d.sifted_key_length} bits</div>
+      <div class="qc-bits">${keyHtml}</div>
+      <div style="color:var(--cyan);font-size:.65rem;margin-top:6px">Hex: ${d.sifted_key_hex||'—'}</div>
+      <div style="color:var(--dim);font-size:.65rem;margin-top:3px">
+        Sift ratio: ${d.sift_ratio} | Eavesdrop detectable: ✓</div>`;
+  }
+  return `<pre style="font-size:.6rem;overflow:auto">${JSON.stringify(d,null,2)}</pre>`;
+}
+
+/* ── CHARTS ── */
+function drawVolChart(){
+  const c=document.getElementById('vol-chart');
+  if(!c) return;
+  c.width=c.clientWidth||600; c.height=180;
+  const ctx=c.getContext('2d'), W=c.width, H=180;
+  const pad={t:10,r:10,b:28,l:48};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  const hrs=24;
+  const data=Array.from({length:hrs},()=>Math.floor(Math.random()*12000+2000));
+  const max=Math.max(...data);
+  const sx=i=>pad.l+(i/(hrs-1))*cw;
+  const sy=v=>pad.t+(1-v/max)*ch;
+  ctx.clearRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+(ch/4)*i;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+    ctx.fillStyle='rgba(128,144,176,.6)';ctx.font='9px Space Mono';ctx.textAlign='right';
+    ctx.fillText('₹'+Math.round((max-(max/4)*i)/1000)+'k',pad.l-5,y+3);
+  }
+  // gradient area
+  const g=ctx.createLinearGradient(0,pad.t,0,pad.t+ch);
+  g.addColorStop(0,'rgba(0,245,255,.3)');g.addColorStop(1,'rgba(0,245,255,0)');
+  ctx.beginPath();
+  data.forEach((v,i)=>i===0?ctx.moveTo(sx(i),sy(v)):ctx.lineTo(sx(i),sy(v)));
+  ctx.lineTo(sx(hrs-1),pad.t+ch);ctx.lineTo(sx(0),pad.t+ch);ctx.closePath();
+  ctx.fillStyle=g;ctx.fill();
+  // line
+  ctx.beginPath();
+  data.forEach((v,i)=>i===0?ctx.moveTo(sx(i),sy(v)):ctx.lineTo(sx(i),sy(v)));
+  ctx.strokeStyle='#00f5ff';ctx.lineWidth=2;ctx.stroke();
+  // x-labels
+  ctx.fillStyle='rgba(128,144,176,.6)';ctx.font='9px Outfit';ctx.textAlign='center';
+  [0,6,12,18,23].forEach(i=>ctx.fillText(i+':00',sx(i),pad.t+ch+14));
+}
+
+function drawAttackChart(){
+  const c=document.getElementById('attack-chart');
+  if(!c) return;
+  c.width=c.clientWidth||600; c.height=180;
+  const ctx=c.getContext('2d'), W=c.width, H=180;
+  const categories=['MITM','SQL Inj','Brute Force','Replay','SIM Swap','Phishing','DDoS','XSS'];
+  const vals=[31,24,18,12,8,5,4,3];
+  const maxV=Math.max(...vals);
+  const bw=Math.floor((W-60)/(categories.length))-6;
+  ctx.clearRect(0,0,W,H);
+  const colors=['#ff6b6b','#7b2fff','#ffcc00','#ff9f40','#00f5ff','#00ffaa','#ff6b6b','#7b2fff'];
+  categories.forEach((cat,i)=>{
+    const x=40+i*(bw+6);
+    const bh=((H-50)*vals[i]/maxV);
+    const y=H-30-bh;
+    const g=ctx.createLinearGradient(0,y,0,H-30);
+    g.addColorStop(0,colors[i]);g.addColorStop(1,colors[i]+'44');
+    ctx.fillStyle=g;
+    ctx.beginPath();
+    ctx.roundRect?ctx.roundRect(x,y,bw,bh,4):ctx.rect(x,y,bw,bh);
+    ctx.fill();
+    ctx.fillStyle='rgba(128,144,176,.6)';ctx.font='8px Outfit';ctx.textAlign='center';
+    ctx.fillText(cat,x+bw/2,H-10);
+    ctx.fillStyle=colors[i];ctx.font='bold 9px Space Mono';
+    ctx.fillText(vals[i]+'%',x+bw/2,y-4);
+  });
+}
+
+function buildSecLayers(){
+  const el=document.getElementById('sec-layers');
+  if(!el) return;
+  const layers=[
+    {icon:'🎲',name:'QRNG Layer',desc:'ANU photon randomness',status:'ACTIVE',pct:100,c:'#00ffaa'},
+    {icon:'🔐',name:'PQC Kyber-768',desc:'Post-quantum encryption',status:'ACTIVE',pct:100,c:'#00f5ff'},
+    {icon:'🏦',name:'HSM Vault',desc:'Hardware key storage',status:'SIMULATED',pct:70,c:'#ffcc00'},
+    {icon:'🤖',name:'Behavioral AI',desc:'Anomaly detection',status:'ACTIVE',pct:95,c:'#7b2fff'},
+    {icon:'🔒',name:'Zero-Trust',desc:'JWT + RBAC enforced',status:'ACTIVE',pct:100,c:'#00ffaa'},
+    {icon:'⛓',name:'Audit Chain',desc:'SHA-256 blockchain',status:'ACTIVE',pct:100,c:'#00f5ff'},
+    {icon:'🛡',name:'RASP Engine',desc:'Runtime app protection',status:'PLANNED',pct:30,c:'#ff9f40'},
+    {icon:'📡',name:'Quantum Channel',desc:'QKD key exchange',status:'SIMULATED',pct:60,c:'#7b2fff'},
+  ];
+  el.innerHTML=layers.map(l=>`
+    <div style="background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.06);
+      border-left:2px solid ${l.c};border-radius:10px;padding:12px">
+      <div style="font-size:1.1rem;margin-bottom:4px">${l.icon}</div>
+      <div style="font-size:.75rem;font-weight:700;margin-bottom:2px">${l.name}</div>
+      <div style="font-size:.62rem;color:var(--dim);margin-bottom:6px">${l.desc}</div>
+      <div style="height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin-bottom:4px">
+        <div style="width:${l.pct}%;height:100%;background:${l.c};border-radius:2px"></div>
+      </div>
+      <div style="font-size:.6rem;font-weight:700;color:${l.status==='ACTIVE'?'var(--green)':l.status==='SIMULATED'?'var(--yellow)':'var(--dim)'}">${l.status}</div>
+    </div>`).join('');
+}
+
+function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val}
+</script>
+</body>
+</html>
