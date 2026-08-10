@@ -31,7 +31,83 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-import aiosqlite
+import asyncpg
+# --- POSTGRES COMPAT LAYER ---
+class PGCompatCursor:
+    def __init__(self, records):
+        self.records = records
+        self.idx = 0
+    async def __aenter__(self): return self
+    async def __aexit__(self, exc_type, exc, tb): pass
+    async def fetchone(self):
+        if self.idx < len(self.records):
+            res = self.records[self.idx]
+            self.idx += 1
+            return tuple(res.values())
+        return None
+    async def fetchall(self):
+        res = [tuple(r.values()) for r in self.records[self.idx:]]
+        self.idx = len(self.records)
+        return res
+
+class PGCompatConnection:
+    def __init__(self, conn):
+        self.conn = conn
+    async def __aenter__(self): return self
+    async def __aexit__(self, exc_type, exc, tb): pass
+    
+    def convert_sql(self, query):
+        parts = query.split('?')
+        res = parts[0]
+        for i in range(1, len(parts)):
+            res += f'${i}' + parts[i]
+        return res
+
+    async def execute(self, query, args=None):
+        query = self.convert_sql(query)
+        if args:
+            if query.strip().upper().startswith("SELECT") or " RETURNING " in query.upper():
+                recs = await self.conn.fetch(query, *args)
+                return PGCompatCursor(recs)
+            else:
+                await self.conn.execute(query, *args)
+                return PGCompatCursor([])
+        else:
+            if query.strip().upper().startswith("SELECT") or " RETURNING " in query.upper():
+                recs = await self.conn.fetch(query)
+                return PGCompatCursor(recs)
+            else:
+                await self.conn.execute(query)
+                return PGCompatCursor([])
+                
+    async def executescript(self, script):
+        await self.conn.execute(script)
+        
+    async def executemany(self, query, arg_list):
+        query = self.convert_sql(query)
+        await self.conn.executemany(query, arg_list)
+        
+    async def commit(self):
+        pass # Managed by pool/tx
+
+    def transaction(self):
+        return self.conn.transaction()
+
+class PGCompatPool:
+    def __init__(self, pool):
+        self.pool = pool
+    async def __aenter__(self):
+        self.conn = await self.pool.acquire()
+        return PGCompatConnection(self.conn)
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.pool.release(self.conn)
+
+class aiosqlite:
+    @staticmethod
+    def connect(path):
+        return PGCompatPool(db_pool)
+# -----------------------------
+
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -47,7 +123,11 @@ if not SECRET_KEY:
 ALGORITHM      = "HS256"
 TOKEN_EXPIRE   = 60       # access token: 60 minutes
 REFRESH_EXPIRE = 10080    # refresh token: 7 days (in minutes)
-DB_PATH        = "quantumpay.db"
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("[WARN] DATABASE_URL not set. Please set it in Railway Variables.")
+
+db_pool = None
 
 PRODUCTION_URL = os.getenv("RAILWAY_PUBLIC_DOMAIN", "quantumpay-api-production.up.railway.app")
 ALLOWED_ORIGINS = [
@@ -111,17 +191,18 @@ app.add_middleware(
 
 # ─── DATABASE ────────────────────────────────────────────────────────────────
 async def init_db():
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.executescript("""
+    if not db_pool: return
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 upi_id TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 hashed_pw TEXT NOT NULL,
-                balance REAL DEFAULT 10000.0,
+                balance REAL DEFAULT 10000.0 CHECK (balance >= 0),
                 is_admin INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS transactions (
                 id TEXT PRIMARY KEY,
@@ -132,34 +213,34 @@ async def init_db():
                 quantum_token TEXT,
                 pqc_signature TEXT,
                 status TEXT DEFAULT 'success',
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS audit_blocks (
-                block_num INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_num SERIAL PRIMARY KEY,
                 block_hash TEXT NOT NULL,
                 prev_hash TEXT NOT NULL,
                 actor TEXT NOT NULL,
                 action TEXT NOT NULL,
                 data TEXT,
-                timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS behavior_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 event_type TEXT NOT NULL,
                 ip_address TEXT,
                 device_id TEXT,
-                timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 anomaly_score REAL DEFAULT 0.0
             );
             CREATE TABLE IF NOT EXISTS threat_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 attack_type TEXT,
                 source_ip TEXT,
                 layer_hit TEXT,
                 blocked INTEGER DEFAULT 1,
                 response_ms REAL,
-                timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS b2b_partners (
                 id TEXT PRIMARY KEY,
@@ -167,7 +248,7 @@ async def init_db():
                 api_key TEXT UNIQUE NOT NULL,
                 webhook_url TEXT,
                 is_active INTEGER DEFAULT 1,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS b2b_transactions (
                 id TEXT PRIMARY KEY,
@@ -177,17 +258,16 @@ async def init_db():
                 currency TEXT,
                 quantum_proof_token TEXT,
                 canonical_payload_hash TEXT UNIQUE,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS key_pool (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 token TEXT NOT NULL,
                 status TEXT DEFAULT 'AVAILABLE',
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        await db.commit()
-        print("[OK] Database initialized — QuantumPay v5.0")
+        print("[OK] PostgreSQL Database initialized — QuantumPay v5.2")
 
 # ─── MODELS ──────────────────────────────────────────────────────────────────
 class RegisterRequest(BaseModel):
@@ -354,7 +434,7 @@ async def write_audit_block(db, actor: str, action: str, data: dict = None):
         row = await cursor.fetchone()
     prev_hash  = row[0] if row else "0" * 64
     block_data = json.dumps(data or {}, default=str)
-    timestamp  = datetime.utcnow().isoformat()
+    timestamp  = datetime.utcnow()
     raw        = f"{prev_hash}{actor}{action}{block_data}{timestamp}"
     block_hash = hashlib.sha256(raw.encode()).hexdigest()
     await db.execute(
@@ -371,7 +451,7 @@ class BehavioralAnalytics:
         hour = datetime.utcnow().hour
         if hour < 6 or hour > 22: score += 30.0
         recent = [e for e in events if
-                  (datetime.utcnow() - datetime.fromisoformat(e["timestamp"])).seconds < 300]
+                  (datetime.utcnow() - e["timestamp"] if hasattr(e["timestamp"], "isoformat") else datetime.fromisoformat(e["timestamp"])).seconds < 300]
         if len(recent) > 20: score += 25.0
         device_ids = [e.get("device_id") for e in events]
         if new_event.get("device_id") not in device_ids and len(events) > 3: score += 20.0
@@ -415,9 +495,14 @@ async def refill_key_pool():
 # ─── STARTUP ──────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
-    await init_db()
-    asyncio.create_task(refill_key_pool())
-    print("[STARTED] QuantumPay v5.0 — hardened security + new features active")
+    global db_pool
+    if DATABASE_URL:
+        db_pool = await asyncpg.create_pool(DATABASE_URL)
+        await init_db()
+        asyncio.create_task(refill_key_pool())
+        print("[STARTED] QuantumPay v5.2 — PostgreSQL Active")
+    else:
+        print("[ERROR] DATABASE_URL missing, DB features disabled")
 
 # ─── HEALTH & ROOT ────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
@@ -460,7 +545,7 @@ async def get_qrng(count: int = 32):
     return {"success": True, "source": "ANU Quantum Lab (photon vacuum fluctuation)",
             "count": count, "data": nums, "hex": bytes(nums).hex().upper(),
             "entropy_bits": count * 8, "algorithm": "Quantum Vacuum Fluctuation",
-            "timestamp": datetime.utcnow().isoformat()}
+            "timestamp": datetime.utcnow()}
 
 # ─── PQC TOKEN ────────────────────────────────────────────────────────────────
 @app.get("/api/pqc/token")
@@ -471,7 +556,7 @@ async def get_pqc_token():
     kem       = await quantum.pqc_kem()
     return {"token": f"QP-{token[:8]}-{token[8:16]}-{token[16:24]}",
             "signature": signature, "kem": kem,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow(),
             "expires_in_ms": 51, "quantum_proof": True}
 
 # ─── AUTH: REGISTER ───────────────────────────────────────────────────────────
@@ -578,7 +663,7 @@ async def send_payment(req: PaymentRequest, upi_id: str = Depends(get_current_us
         async with db.execute(
             "SELECT receiver_upi, amount, created_at FROM transactions WHERE sender_upi=? LIMIT 20", (upi_id,)
         ) as c:
-            history = [{"receiver_upi": r[0], "amount": r[1], "timestamp": r[2]} for r in await c.fetchall()]
+            history = [{"receiver_upi": r[0], "amount": r[1], "timestamp": r[2].isoformat() if hasattr(r[2], "isoformat") else r[2]} for r in await c.fetchall()]
         start_ms = time.time() * 1000
         q_token  = await quantum.generate_transaction_token(upi_id, req.receiver_upi, req.amount)
         tx_data  = f"{upi_id}:{req.receiver_upi}:{req.amount}:{q_token}"
@@ -590,14 +675,15 @@ async def send_payment(req: PaymentRequest, upi_id: str = Depends(get_current_us
             raise HTTPException(status_code=403, detail=f"Fraud detected: {', '.join(fraud['flags'])}")
         elapsed_ms = round(time.time() * 1000 - start_ms, 1)
         tx_id = str(uuid.uuid4())
-        await db.execute("UPDATE users SET balance=balance-? WHERE upi_id=?", (req.amount, upi_id))
-        await db.execute("UPDATE users SET balance=balance+? WHERE upi_id=?", (req.amount, req.receiver_upi))
-        await db.execute(
-            "INSERT INTO transactions (id, sender_upi, receiver_upi, amount, note, quantum_token, pqc_signature) "
-            "VALUES (?,?,?,?,?,?,?)",
-            (tx_id, upi_id, req.receiver_upi, req.amount, req.note, q_token, pqc_sig["commitment"])
-        )
-        await db.commit()
+        async with db.transaction():
+            # Attempt to deduct balance first, CHECK (balance >= 0) constraint will abort if insufficient
+            await db.execute("UPDATE users SET balance=balance-? WHERE upi_id=?", (req.amount, upi_id))
+            await db.execute("UPDATE users SET balance=balance+? WHERE upi_id=?", (req.amount, req.receiver_upi))
+            await db.execute(
+                "INSERT INTO transactions (id, sender_upi, receiver_upi, amount, note, quantum_token, pqc_signature) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (tx_id, upi_id, req.receiver_upi, req.amount, req.note, q_token, pqc_sig["commitment"])
+            )
         block_hash = await write_audit_block(db, upi_id, "PAYMENT_SENT", {
             "tx_id": tx_id, "to": req.receiver_upi, "amount": req.amount, "token": q_token
         })
@@ -616,7 +702,7 @@ async def get_transactions(upi_id: str = Depends(get_current_user)):
         ) as cursor:
             rows = await cursor.fetchall()
     return [{"id": r[0], "sender": r[1], "receiver": r[2], "amount": r[3],
-             "note": r[4], "quantum_token": r[5], "status": r[6], "created_at": r[7],
+             "note": r[4], "quantum_token": r[5], "status": r[6], "created_at": r[7].isoformat() if hasattr(r[7], "isoformat") else r[7],
              "direction": "OUT" if r[1] == upi_id else "IN"} for r in rows]
 
 # ─── TRANSACTION RECEIPT (NEW) ────────────────────────────────────────────────
@@ -640,7 +726,7 @@ async def get_transaction_receipt(tx_id: str, upi_id: str = Depends(get_current_
     return {
         "receipt_id": receipt_id,
         "transaction": {"id": tx[0], "sender_upi": tx[1], "receiver_upi": tx[2],
-                        "amount_inr": tx[3], "note": tx[4], "status": tx[7], "created_at": tx[8]},
+                        "amount_inr": tx[3], "note": tx[4], "status": tx[7], "created_at": tx[8].isoformat() if hasattr(tx[8], "isoformat") else tx[8]},
         "quantum_proof": {"token": tx[5], "pqc_commitment": tx[6],
                           "algorithm": "CRYSTALS-Kyber-1024 + Dilithium-3",
                           "security_level": "NIST FIPS 203 Level 5",
@@ -648,7 +734,7 @@ async def get_transaction_receipt(tx_id: str, upi_id: str = Depends(get_current_
                           "chsh_bell_test": "PASSED (S = 2.8284 > 2.0000)"},
         "compliance": {"rbi_compliant": True, "npci_upi_standard": "v2.0",
                        "iso_27001": True, "cert_in_audit": "Level 4 Cleared"},
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.utcnow(),
         "issuer": "QuantumPay CyberSec Technologies v5.0"
     }
 
@@ -664,7 +750,7 @@ async def get_audit_log(limit: int = 50, upi_id: str = Depends(get_current_user)
             rows = await cursor.fetchall()
     return [{"block": r[0], "hash": r[1], "prev_hash": r[2], "actor": r[3],
              "action": r[4], "data": json.loads(r[5]) if r[5] else {},
-             "timestamp": r[6]} for r in rows]
+             "timestamp": r[6].isoformat() if hasattr(r[6], "isoformat") else r[6]} for r in rows]
 
 # ─── SECURITY STATS ───────────────────────────────────────────────────────────
 @app.get("/api/security/stats")
@@ -692,7 +778,7 @@ async def log_behavior(event: BehaviorEvent, upi_id: str = Depends(get_current_u
             "SELECT event_type, device_id, timestamp FROM behavior_log WHERE user_id=? ORDER BY timestamp DESC LIMIT 50",
             (user[0],)
         ) as c:
-            recent = [{"event_type": r[0], "device_id": r[1], "timestamp": r[2]} for r in await c.fetchall()]
+            recent = [{"event_type": r[0], "device_id": r[1], "timestamp": r[2].isoformat() if hasattr(r[2], "isoformat") else r[2]} for r in await c.fetchall()]
         score = behavior_engine.compute_anomaly_score(recent, {"event_type": event.event_type, "device_id": event.device_id})
         await db.execute(
             "INSERT INTO behavior_log (user_id, event_type, device_id, anomaly_score) VALUES (?,?,?,?)",
@@ -726,11 +812,11 @@ async def live_threats():
         "note": "Example threat patterns for audit/demo purposes. Real blocked attempts are in threat_log table.",
         "real_attacks_blocked_in_db": real_blocked,
         "threats": threats, "total_blocked": real_blocked,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow()
     }
 
 @app.post("/api/threats/simulate")
-async def simulate_threat(req: ThreatSimRequest):
+async def simulate_threat(req: ThreatSimRequest, admin: str = Depends(get_admin_user)):
     """Simulate and LOG a threat to the real threat_log table."""
     import random
     layers    = ["QRNG Layer","PQC Encryption","HSM Vault","RASP Engine","Behavioral AI","Zero-Trust"]
@@ -745,7 +831,7 @@ async def simulate_threat(req: ThreatSimRequest):
     return {"threat_id": str(uuid.uuid4()), "type": req.type, "source_ip": req.source_ip,
             "blocked": True, "blocked_by": blocked_by, "response_ms": resp_ms,
             "action_taken": "IP blacklisted and session terminated",
-            "logged_to_db": True, "timestamp": datetime.utcnow().isoformat()}
+            "logged_to_db": True, "timestamp": datetime.utcnow()}
 
 # ─── WEBSOCKET (live QRNG + key pool + b2b stats) ────────────────────────────
 class ConnectionManager:
@@ -780,7 +866,7 @@ async def websocket_live(ws: WebSocket):
                                 "key_pool_ready": max(pool_count, 50000),
                                 "b2b_transactions_total": max(b2b_tx, 1420),
                                 "chsh_s_value": 2.8284,
-                                "timestamp": datetime.utcnow().isoformat()})
+                                "timestamp": datetime.utcnow()})
             await asyncio.sleep(2)
     except WebSocketDisconnect:
         ws_manager.disconnect(ws)
@@ -795,8 +881,8 @@ async def admin_stats(admin: str = Depends(get_admin_user)):
         async with db.execute("SELECT COUNT(*) FROM audit_blocks") as c: blocks = (await c.fetchone())[0]
         async with db.execute("SELECT COUNT(*) FROM behavior_log WHERE anomaly_score > 60") as c: anomalies = (await c.fetchone())[0]
         async with db.execute("SELECT COUNT(*) FROM threat_log WHERE blocked=1") as c: blocked = (await c.fetchone())[0]
-        async with db.execute("SELECT created_at, COUNT(*) FROM transactions GROUP BY date(created_at) ORDER BY created_at DESC LIMIT 7") as c:
-            daily = [{"date": r[0][:10], "count": r[1]} for r in await c.fetchall()]
+        async with db.execute("SELECT created_at, COUNT(*) FROM transactions GROUP BY DATE(created_at) ORDER BY created_at DESC LIMIT 7") as c:
+            daily = [{"date": r[0].isoformat()[:10] if hasattr(r[0], "isoformat") else r[0][:10], "count": r[1]} for r in await c.fetchall()]
     return {"users": {"total": users}, "transactions": {"total": txs, "volume": round(vol, 2)},
             "security": {"audit_blocks": blocks, "anomalies": anomalies, "attacks_blocked": blocked},
             "daily_transactions": daily, "uptime": "99.97%"}
@@ -806,7 +892,7 @@ async def admin_users(admin: str = Depends(get_admin_user)):
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT id, name, upi_id, email, balance, created_at FROM users ORDER BY created_at DESC") as c:
             rows = await c.fetchall()
-    return [{"id": r[0], "name": r[1], "upi_id": r[2], "email": r[3], "balance": r[4], "created_at": r[5]} for r in rows]
+    return [{"id": r[0], "name": r[1], "upi_id": r[2], "email": r[3], "balance": r[4], "created_at": r[5].isoformat() if hasattr(r[5], "isoformat") else r[5]} for r in rows]
 
 @app.get("/api/admin/transactions")
 async def admin_transactions(limit: int = 50, admin: str = Depends(get_admin_user)):
@@ -880,7 +966,7 @@ async def rbi_sandbox_verify():
                 "aml_sanction_screening": {"passed": True, "latency_ms": 12.4},
                 "immutable_audit_trail": {"passed": True, "chained_blocks": audit_count}},
             "metrics": {"processed_sandbox_txs": total_txs, "dispute_rate": "0.00%"},
-            "timestamp": datetime.utcnow().isoformat()}
+            "timestamp": datetime.utcnow()}
 
 @app.post("/api/npci/switch-settlement")
 async def npci_switch_settlement(req: dict):
@@ -891,7 +977,7 @@ async def npci_switch_settlement(req: dict):
     return {"settlement_status": "SETTLED", "npci_rrn": npci_rrn, "transaction_id": tx_id,
             "amount": amount, "settlement_type": "IMPS/UPI Instant Gross Settlement",
             "pqc_tunnel": "Kyber-1024 IPSec Quantum Tunnel", "latency_ms": 28.5,
-            "timestamp": datetime.utcnow().isoformat()}
+            "timestamp": datetime.utcnow()}
 
 @app.get("/api/hsm/vault-status")
 async def hsm_vault_status():
@@ -914,7 +1000,7 @@ async def dispatch_webhook(url: str, api_key: str, payload: dict):
         print(f"[WARN] Webhook failed: {e}")
 
 @app.post("/api/v1/b2b/register-partner")
-async def register_partner(req: B2BPartnerRequest):
+async def register_partner(req: B2BPartnerRequest, admin: str = Depends(get_admin_user)):
     """Issue a real QRNG-entropy API key to a B2B partner bank."""
     q_bytes    = await quantum.get_qrng_bytes(32)
     partner_id = "PTR-" + secrets.token_hex(4).upper()
@@ -933,7 +1019,7 @@ async def register_partner(req: B2BPartnerRequest):
             "api_key": api_key,
             "api_key_note": "Store this securely. Use in X-API-Key header for all B2B calls.",
             "entropy_source": "ANU Quantum Lab QRNG (256-bit)", "webhook_url": req.webhook_url or "Not set",
-            "registered_at": datetime.utcnow().isoformat()}
+            "registered_at": datetime.utcnow()}
 
 @app.post("/api/v1/b2b/generate-token")
 async def b2b_generate_token(req: B2BPaymentRequest):
@@ -948,7 +1034,7 @@ async def b2b_generate_token(req: B2BPaymentRequest):
         raise HTTPException(status_code=401, detail="Invalid or inactive API key")
     partner = {"partner_id": partner_row[0], "partner_name": partner_row[1],
                "webhook_url": partner_row[2], "api_key": req.api_key}
-    req_time = req.timestamp_utc or datetime.utcnow().isoformat()
+    req_time = req.timestamp_utc or datetime.utcnow()
     tx_ref   = "QP-B2B-V50-" + secrets.token_hex(6).upper()
     canonical = json.dumps({"partner_id": partner["partner_id"], "amount": req.amount,
                             "currency": req.currency, "merchant_id": req.merchant_id,
@@ -976,7 +1062,7 @@ async def b2b_generate_token(req: B2BPaymentRequest):
             "replay_protection": "CANONICAL_HASH_CONSUMED",
             "post_quantum_spec": {"kem": "CRYSTALS-Kyber-1024 (NIST FIPS 203 Level 5)",
                                   "sig": "CRYSTALS-Dilithium-3 (NIST FIPS 204)"},
-            "timestamp": datetime.utcnow().isoformat()}
+            "timestamp": datetime.utcnow()}
 
 @app.post("/api/v1/b2b/verify")
 async def verify_token(req: VerifyTokenRequest):
@@ -992,7 +1078,7 @@ async def verify_token(req: VerifyTokenRequest):
     return {"valid": True, "quantum_proof_token": token,
             "security_level": "NIST Level 5 (Kyber-1024)", "chsh_entanglement_status": "PASSED (S=2.8284)",
             "transaction_ref": row[0], "partner_id": row[1], "amount": row[2], "currency": row[3],
-            "canonical_payload_hash": row[4], "issued_at": row[5],
+            "canonical_payload_hash": row[4], "issued_at": row[5].isoformat() if hasattr(row[5], "isoformat") else row[5],
             "message": "Token verified authentic against quantum security ledger."}
 
 @app.get("/api/v1/b2b/metrics")
@@ -1028,7 +1114,7 @@ async def iso20022_convert(req: ISO20022Request):
             "chsh_bell_test": "PASSED (S = 2.8284 > 2.0000)",
             "sender_bank": req.sender_bank, "receiver_bank": req.receiver_bank,
             "amount": req.amount, "currency": req.currency,
-            "timestamp": datetime.utcnow().isoformat()}
+            "timestamp": datetime.utcnow()}
 
 @app.get("/api/v1/b2b/audit-export")
 async def audit_export():
@@ -1046,7 +1132,7 @@ async def audit_export():
                 "secret_key": "Env var only — no fallback",
                 "attacks_blocked_counter": "Real DB count from threat_log"},
             "status": "LEVEL_5_ISO20022_V50_DEFENSE_COMPLIANT",
-            "timestamp": datetime.utcnow().isoformat()}
+            "timestamp": datetime.utcnow()}
 
 
 # --- STATIC FILE SERVING ---------------------------------------------------
