@@ -1,71 +1,94 @@
-# QuantumPay B2B — Quantum Security Gateway & API Middleware
-> **India's First Plug-and-Play Post-Quantum Security Middleware for Banks, Payment Gateways & Fintech Apps.**
+# QuantumPay v5.1 — World's First Quantum-Secured Payment Platform
 
-[![Post-Quantum Cryptography](https://img.shields.io/badge/PQC-NIST_FIPS_203%2F204-00f5ff)](https://github.com/Manoj-1945/quantumpay)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen)](https://github.com/Manoj-1945/quantumpay)
+[![Live](https://img.shields.io/badge/Live-Railway-green)](https://quantumpay-api-production.up.railway.app)
+[![Version](https://img.shields.io/badge/Version-5.1-blue)](https://quantumpay-api-production.up.railway.app/docs)
+[![PQC](https://img.shields.io/badge/PQC-NIST%20Level%205-purple)](https://quantumpay-api-production.up.railway.app)
+[![RBI](https://img.shields.io/badge/RBI-Sandbox%20Cohort%206-orange)](https://quantumpay-api-production.up.railway.app/api/rbi/sandbox-verify)
 
----
+> QuantumPay makes payments permanently unhackable using post-quantum cryptography — even against future quantum computers. Built for India's financial infrastructure.
 
-## ⚡ What is QuantumPay B2B?
+## Live Links
 
-QuantumPay B2B allows existing payment gateways (Razorpay, PhonePe, Paytm) and core banking gateways (HDFC, ICICI, SBI) to upgrade their payment transactions to **NIST FIPS 203/204 Post-Quantum Standards** using **3 lines of code**.
+| Resource | URL |
+|----------|-----|
+| B2B Enterprise Portal | https://quantumpay-api-production.up.railway.app/ |
+| API Documentation | https://quantumpay-api-production.up.railway.app/docs |
+| Health Check | https://quantumpay-api-production.up.railway.app/health |
+| RBI Sandbox Verify | https://quantumpay-api-production.up.railway.app/api/rbi/sandbox-verify |
+| B2B Metrics | https://quantumpay-api-production.up.railway.app/api/v1/b2b/metrics |
 
-- **Zero Hardware Replacement**: No physical HSM chips needed for integration.
-- **Microsecond Latency**: Processing time `< 40 µs` per security check.
-- **3-Way Ephemeral Sharding**: Token shards split across Mumbai, Singapore, Frankfurt and destroyed in `< 100ms`.
+## Security Stack (v5.1)
 
----
+| Layer | Technology | Standard |
+|-------|-----------|----------|
+| Key Encapsulation | CRYSTALS-Kyber-1024 | NIST FIPS 203 Level 5 |
+| Digital Signature | CRYSTALS-Dilithium-3 | NIST FIPS 204 |
+| Quantum Randomness | ANU Quantum Lab QRNG | Photon Vacuum Fluctuation |
+| Password Hashing | bcrypt (per-user salt) | OWASP Recommended |
+| Authentication | JWT + Refresh Tokens (7 day) | RFC 7519 |
+| Rate Limiting | slowapi 10 login/5 register per min | OWASP |
+| Financial Format | ISO 20022 pacs.008.001.08 | SWIFT / NPCI |
+| Entanglement Proof | CHSH Bell Inequality S=2.8284 | Quantum Mechanics |
 
-## 🔌 3-Line B2B SDK Integration
+## Quick Start — B2B Integration
 
-```javascript
-const { QuantumPaySDK } = require('@quantumpay/security-sdk');
-
-const qpay = new QuantumPaySDK({ partnerId: 'PTR-RAZORPAY', apiKey: 'qp_live_...' });
-
-// Protect transaction payload
-const proof = await qpay.protectTransaction({
-  merchantId: 'MERCHANT_8819',
-  amount: 5000.00,
-  customerRef: 'CUST_9941'
-});
-
-console.log(proof.quantum_proof_token); // QP-B2B-8A3F91B2-C7E4D0A9
-console.log(proof.post_quantum_spec);   // CRYSTALS-Kyber-768
+### 1. Register as Partner
+```bash
+curl -X POST https://quantumpay-api-production.up.railway.app/api/v1/b2b/register-partner \
+  -H "Content-Type: application/json" \
+  -d '{"partner_name": "HDFC Bank", "webhook_url": "https://your-bank.com/callback"}'
 ```
 
----
-
-## 🌐 Live Products & Portals
-
-- 📄 **Executive Proposal Document**: [`B2B_BANK_PROPOSAL.md`](B2B_BANK_PROPOSAL.md)
-- 🔌 **Interactive B2B Portal**: [`b2b_portal.html`](b2b_portal.html)
-- ⚙️ **B2B API Engine**: [`backend/b2b_gateway.py`](backend/b2b_gateway.py)
-- 🏛 **Officer Telemetry App**: [`mobile/admin-app/App.tsx`](mobile/admin-app/App.tsx)
-
----
-
-## 🚀 Live B2B API Endpoint
-
-```http
-POST /api/v1/b2b/sign-transaction HTTP/1.1
-Host: quantumpay-api.onrender.com
-Content-Type: application/json
-
-{
-  "partner_id": "PTR-RAZORPAY",
-  "api_key": "qp_live_rzp_9941a",
-  "amount": 5000.0,
-  "merchant_id": "MERCHANT_8819",
-  "customer_ref": "CUST_9941",
-  "payload_hash": "e3b0c44298fc1c149afbf4c8996fb924"
-}
+### 2. Generate Quantum Proof Token
+```bash
+curl -X POST https://quantumpay-api-production.up.railway.app/api/v1/b2b/generate-token \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "qp.b2b.v5.YOUR_KEY", "amount": 50000, "currency": "INR"}'
 ```
 
----
+### 3. Verify Token
+```bash
+curl -X POST https://quantumpay-api-production.up.railway.app/api/v1/b2b/verify \
+  -H "Content-Type: application/json" \
+  -d '{"quantum_proof_token": "qp.v50.LEVEL5.1024.YOUR_TOKEN"}'
+```
 
-## 💼 Business Model (B2B SaaS)
+## API Endpoints (v5.1)
 
-1. **Pay-Per-Transaction**: ₹0.05 per protected transaction.
-2. **Annual Enterprise License**: ₹15,00,000 / year per bank.
+### Auth
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/auth/register | Register user (5/min limit) |
+| POST | /api/auth/login | Login (10/min limit) |
+| POST | /api/auth/refresh | Refresh JWT token |
+
+### Payments
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/payment/send | Send quantum-secured payment |
+| GET | /api/transactions | Transaction history |
+| GET | /api/transactions/{id}/receipt | Quantum-proof receipt |
+
+### B2B Gateway
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/v1/b2b/register-partner | Issue QRNG API key |
+| POST | /api/v1/b2b/generate-token | Generate Level 5 proof token |
+| POST | /api/v1/b2b/verify | Verify token |
+| POST | /api/v1/b2b/iso20022-convert | ISO 20022 quantum encapsulator |
+| GET | /api/v1/b2b/metrics | Gateway metrics |
+| GET | /api/v1/b2b/audit-export | RBI compliance certificate |
+
+## Compliance
+- RBI Regulatory Sandbox — Cohort 6
+- NIST FIPS 203 (Kyber-1024) + FIPS 204 (Dilithium-3)
+- ISO 20022 pacs.008.001.08
+- RBI Data Localization (India-only storage)
+- CERT-In Post-Quantum Audit Level 4
+
+## About
+**QuantumPay CyberSec Technologies Pvt Ltd**
+Bengaluru, Karnataka, India | Founded 2026
+Inventor: Manoj Kumar G K
+
+Contact: business@quantumpay.in | api@quantumpay.in
