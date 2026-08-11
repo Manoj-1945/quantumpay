@@ -646,6 +646,19 @@ async def get_profile(upi_id: str = Depends(get_current_user)):
             "balance": user[4], "created_at": user[5], "quantum_secured": True}
 
 # ─── PAYMENT ──────────────────────────────────────────────────────────────────
+
+async def verify_ledger_integrity(db, upi_id: str, db_balance: float) -> bool:
+    async with db.execute("SELECT SUM(amount) FROM transactions WHERE receiver_upi=? AND status='success'", (upi_id,)) as c:
+        incoming = (await c.fetchone())[0] or 0.0
+    async with db.execute("SELECT SUM(amount) FROM transactions WHERE sender_upi=? AND status='success'", (upi_id,)) as c:
+        outgoing = (await c.fetchone())[0] or 0.0
+    
+    true_balance = 10000.0 + incoming - outgoing
+    if round(true_balance, 2) != round(db_balance, 2):
+        await write_audit_block(db, upi_id, "TAMPER_DETECTED", {"db_balance": db_balance, "true_balance": true_balance})
+        return False
+    return True
+
 @app.post("/api/payment/send")
 @limiter.limit("30/minute")
 async def send_payment(request: Request, req: PaymentRequest, upi_id: str = Depends(get_current_user)):
@@ -658,6 +671,11 @@ async def send_payment(request: Request, req: PaymentRequest, upi_id: str = Depe
             raise HTTPException(status_code=404, detail="Sender not found")
         if sender[1] < req.amount:
             raise HTTPException(status_code=400, detail="Insufficient balance")
+        
+        # Zero-Trust Watchdog Check
+        is_valid = await verify_ledger_integrity(db, upi_id, sender[1])
+        if not is_valid:
+            raise HTTPException(status_code=403, detail="CRITICAL ERROR: Ledger integrity check failed. Account frozen.")
         async with db.execute("SELECT id FROM users WHERE upi_id=?", (req.receiver_upi,)) as c:
             receiver = await c.fetchone()
         if not receiver:
