@@ -106,7 +106,7 @@
   </div>
 
   <script>
-  const API = 'https://quantumpay-api-production.up.railway.app';
+  const API = 'http://localhost:8000';
 
   // Canvas particles
   (function(){
@@ -152,12 +152,12 @@
     btn.disabled=true;btn.textContent='⚛ Authenticating...';err.className='err';
     try{
       const r=await fetch(`${API}/api/auth/login`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
+        method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({upi_id:document.getElementById('l-upi').value,password:document.getElementById('l-pw').value})
       });
       const data=await r.json();
       if(!r.ok)throw new Error(data.detail||'Login failed');
-      localStorage.setItem('qp_token',data.token);
+      // localStorage.setItem('qp_token',data.token);  // Phase 5: Using HttpOnly Cookies
       localStorage.setItem('qp_name',data.name);
       localStorage.setItem('qp_upi',data.upi_id);
       localStorage.setItem('qp_balance',data.balance||10000);
@@ -177,7 +177,7 @@
     err.className='err';ok.className='ok';
     try{
       const r=await fetch(`${API}/api/auth/register`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
+        method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           name:document.getElementById('r-name').value,
           email:document.getElementById('r-email').value,
@@ -187,7 +187,7 @@
       });
       const data=await r.json();
       if(!r.ok)throw new Error(data.detail||'Registration failed');
-      localStorage.setItem('qp_token',data.token);
+      // localStorage.setItem('qp_token',data.token);  // Phase 5: Using HttpOnly Cookies
       localStorage.setItem('qp_upi',data.upi_id);
       ok.textContent='✅ Account created! Redirecting...';ok.className='ok show';
       setTimeout(()=>window.location.href='pay.html',1200);
