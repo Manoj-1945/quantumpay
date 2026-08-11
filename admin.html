@@ -214,7 +214,7 @@
         <a class="sb-link" href="pay.html">← Payment App</a>
         <a class="sb-link" href="shield.html">← Security Dashboard</a>
         <a class="sb-link" href="pitch.html">← Investor Pitch</a>
-        <a class="sb-link" href="https://quantumpay-api-production.up.railway.app/docs" target="_blank">API Docs ↗</a>
+        <a class="sb-link" href="http://localhost:8000/docs" target="_blank">API Docs ↗</a>
       </div>
     </div>
   </nav>
@@ -296,7 +296,7 @@
           <div style="font-family:'Space Mono',monospace;font-size:2rem;font-weight:700;
             color:var(--green);margin-bottom:4px">99.97%</div>
           <div style="font-size:.72rem;color:var(--dim)">Last 30 days SLA</div>
-          <div style="font-size:.68rem;color:var(--cyan);margin-top:8px">Backend: quantumpay-api-production.up.railway.app</div>
+          <div style="font-size:.68rem;color:var(--cyan);margin-top:8px">Backend: localhost:8000</div>
         </div>
       </div>
     </div>
@@ -437,15 +437,8 @@
 </div><!-- /shell -->
 
 <script>
-function escapeHTML(str) {
-  if (str === null || str === undefined) return '';
-  return String(str).replace(/[&<>'"]/g, tag => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-  }[tag]));
-}
-
 'use strict';
-const API = 'https://quantumpay-api-production.up.railway.app';
+const API = 'http://localhost:8000';
 
 /* ── PARTICLES ── */
 (function(){
@@ -524,7 +517,7 @@ async function loadStats(){
         {label:'Qiskit Engine',val:d.quantum.qiskit_available?'Active':'Install qiskit',ok:d.quantum.qiskit_available},
         {label:'IBM Hardware',val:'Token not set (using sim)',ok:false},
         {label:'Audit Chain',val:d.security.audit_blocks+' blocks',ok:true},
-        {label:'Backend',val:'quantumpay-api-production.up.railway.app ✓',ok:true},
+        {label:'Backend',val:'localhost:8000 ✓',ok:true},
       ];
       qh.innerHTML=items.map(i=>`
         <div style="display:flex;justify-content:space-between;align-items:center;
@@ -554,11 +547,11 @@ async function loadUsers(){
       return `<tr>
         <td><div style="display:flex;align-items:center;gap:8px">
           <div class="avatar-sm">${init}</div>
-          <div><div style="font-weight:600">${escapeHTML(u.name)}</div>
+          <div><div style="font-weight:600">${u.name}</div>
           <div style="font-size:.67rem;color:var(--dim)">${u.id.substring(0,8)}...</div></div>
         </div></td>
-        <td class="mono">${escapeHTML(u.upi_id)}</td>
-        <td style="color:var(--dim);font-size:.74rem">${escapeHTML(u.email)}</td>
+        <td class="mono">${u.upi_id}</td>
+        <td style="color:var(--dim);font-size:.74rem">${u.email}</td>
         <td><span style="font-family:'Space Mono',monospace;color:var(--green);font-weight:700">₹${bal}</span></td>
         <td style="color:var(--dim);font-size:.72rem">${dt}</td>
         <td><span class="pill green">ACTIVE</span></td>
@@ -583,8 +576,8 @@ async function loadTransactions(){
       const tok=t.token?t.token.substring(0,14)+'...':'—';
       return `<tr>
         <td class="mono" style="color:var(--dim);font-size:.65rem">${(t.id||'').substring(0,8)}...</td>
-        <td style="font-size:.75rem;font-weight:600">${escapeHTML(t.sender)}</td>
-        <td style="font-size:.75rem;color:var(--cyan)">${escapeHTML(t.receiver)}</td>
+        <td style="font-size:.75rem;font-weight:600">${t.sender}</td>
+        <td style="font-size:.75rem;color:var(--cyan)">${t.receiver}</td>
         <td><span style="font-family:'Space Mono',monospace;color:var(--green);font-weight:700">₹${t.amount}</span></td>
         <td class="mono" style="font-size:.62rem;color:var(--dim)">${tok}</td>
         <td><span class="pill green">${t.status||'SUCCESS'}</span></td>
@@ -609,7 +602,7 @@ async function loadAudit(){
       <div class="block-item">
         <div class="block-num">#${b.block}</div>
         <div class="block-body">
-          <div class="block-action">${escapeHTML(b.action)} <span style="color:var(--cyan);font-size:.72rem">· ${escapeHTML(b.actor)}</span></div>
+          <div class="block-action">${b.action} <span style="color:var(--cyan);font-size:.72rem">· ${b.actor}</span></div>
           <div class="block-hash">Hash: ${b.hash} | Prev: ${b.prev_hash.substring(0,16)}...</div>
         </div>
         <div class="block-time">${new Date((b.timestamp||'')+'Z').toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div>
