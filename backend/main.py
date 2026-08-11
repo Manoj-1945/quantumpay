@@ -602,6 +602,7 @@ async def login(req: LoginRequest, request: Request):
             (user[0], "LOGIN", request.client.host if request.client else "unknown")
         )
         await db.commit()
+    response.set_cookie(key="qp_session", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
     return {"success": True, "access_token": access_token, "refresh_token": refresh_token,
             "token": access_token, "name": user[1], "upi_id": req.upi_id, "balance": user[3]}
 
@@ -890,12 +891,13 @@ async def admin_stats(admin: str = Depends(get_admin_user)):
 @app.get("/api/admin/users")
 async def admin_users(admin: str = Depends(get_admin_user)):
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT id, name, upi_id, email, balance, created_at FROM users ORDER BY created_at DESC") as c:
+        async with db.execute("SELECT id, name, upi_id, email, balance, created_at FROM users ORDER BY created_at DESC LIMIT 100") as c:
             rows = await c.fetchall()
     return [{"id": r[0], "name": r[1], "upi_id": r[2], "email": r[3], "balance": r[4], "created_at": r[5].isoformat() if hasattr(r[5], "isoformat") else r[5]} for r in rows]
 
 @app.get("/api/admin/transactions")
 async def admin_transactions(limit: int = 50, admin: str = Depends(get_admin_user)):
+    limit = min(limit, 500)
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT id, sender_upi, receiver_upi, amount, note, quantum_token, status, created_at "
@@ -1103,7 +1105,11 @@ async def get_b2b_metrics(admin: str = Depends(get_admin_user)):
 @app.post("/api/v1/b2b/iso20022-convert")
 async def iso20022_convert(req: ISO20022Request, x_api_key: str = Header(None)):
     if not x_api_key or not x_api_key.startswith("qp.b2b.v5."):
-        raise HTTPException(status_code=401, detail="Invalid API Key")
+        raise HTTPException(status_code=401, detail="Invalid API Key Format")
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT id FROM b2b_partners WHERE api_key=? AND is_active=1", (x_api_key,)) as cur:
+            if not await cur.fetchone():
+                raise HTTPException(status_code=401, detail="Unauthorized API Key")
     q_bytes = await quantum.get_qrng_bytes(32)
     proof_token = f"qp.v50.ISO20022.{secrets.token_hex(8).upper()}.{q_bytes.hex()[:16].upper()}"
     msg_id = "QPISO" + datetime.utcnow().strftime("%Y%m%d%H%M%S")
