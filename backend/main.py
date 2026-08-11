@@ -497,7 +497,7 @@ async def refill_key_pool():
 async def startup():
     global db_pool
     if DATABASE_URL:
-        db_pool = await asyncpg.create_pool(DATABASE_URL)
+        db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=20, command_timeout=10.0, max_inactive_connection_lifetime=300.0)
         await init_db()
         asyncio.create_task(refill_key_pool())
         print("[STARTED] QuantumPay v5.2 — PostgreSQL Active")
@@ -647,7 +647,8 @@ async def get_profile(upi_id: str = Depends(get_current_user)):
 
 # ─── PAYMENT ──────────────────────────────────────────────────────────────────
 @app.post("/api/payment/send")
-async def send_payment(req: PaymentRequest, upi_id: str = Depends(get_current_user)):
+@limiter.limit("30/minute")
+async def send_payment(request: Request, req: PaymentRequest, upi_id: str = Depends(get_current_user)):
     if req.amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
     async with aiosqlite.connect(DB_PATH) as db:
@@ -1103,7 +1104,8 @@ async def get_b2b_metrics(admin: str = Depends(get_admin_user)):
             "fips_compliance": "FIPS 203 Level 5 (Kyber-1024) & FIPS 204 (Dilithium-3) Compliant"}
 
 @app.post("/api/v1/b2b/iso20022-convert")
-async def iso20022_convert(req: ISO20022Request, x_api_key: str = Header(None)):
+@limiter.limit("100/minute")
+async def iso20022_convert(request: Request, req: ISO20022Request, x_api_key: str = Header(None)):
     if not x_api_key or not x_api_key.startswith("qp.b2b.v5."):
         raise HTTPException(status_code=401, detail="Invalid API Key Format")
     async with aiosqlite.connect(DB_PATH) as db:
