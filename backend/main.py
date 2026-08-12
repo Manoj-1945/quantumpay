@@ -309,6 +309,13 @@ class B2BPaymentRequest(BaseModel):
 class VerifyTokenRequest(BaseModel):
     quantum_proof_token: str
 
+class AdminBootstrapRequest(BaseModel):
+    name: str
+    email: str
+    upi_id: str
+    password: str
+    totp_code: str  # 6-digit TOTP code from Google Authenticator
+
 class ISO20022Request(BaseModel):
     xml_payload: Optional[str] = ""
     json_payload: Optional[dict] = None
@@ -890,6 +897,49 @@ async def websocket_live(ws: WebSocket):
             await asyncio.sleep(2)
     except WebSocketDisconnect:
         ws_manager.disconnect(ws)
+
+
+# ─── HIDDEN ADMIN BOOTSTRAP (TOTP PROTECTED — ZERO UI) ───────────────────────
+@app.post("/api/admin/bootstrap")
+async def admin_bootstrap(req: AdminBootstrapRequest):
+    """
+    CLASSIFIED ENDPOINT — Zero-UI Admin Account Creation.
+    Protected by TOTP (Time-Based One-Time Password).
+    Changes every 30 seconds. Brute-force mathematically impossible.
+    """
+    # Read TOTP secret from environment (set in Railway dashboard)
+    totp_secret = os.environ.get("ADMIN_TOTP_SECRET", "")
+    if not totp_secret:
+        raise HTTPException(status_code=503, detail="Admin provisioning not configured.")
+
+    # Verify the 6-digit TOTP code against the current 30-second window
+    totp = pyotp.TOTP(totp_secret)
+    if not totp.verify(req.totp_code, valid_window=1):
+        raise HTTPException(status_code=403, detail="Invalid or expired TOTP code.")
+
+    # TOTP verified — create the Master Admin account
+    user_id = str(uuid.uuid4())
+    hashed  = hash_password(req.password)
+    try:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                "INSERT INTO users (id, name, upi_id, email, hashed_pw, is_admin) VALUES (?,?,?,?,?,1)",
+                (user_id, req.name, req.upi_id, req.email, hashed)
+            )
+            await db.commit()
+            await write_audit_block(db, req.upi_id, "ADMIN_BOOTSTRAP",
+                                    {"name": req.name, "email": req.email, "method": "TOTP"})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Bootstrap failed: {str(e)}")
+
+    access_token = create_token({"sub": req.upi_id, "name": req.name})
+    return {
+        "success": True,
+        "message": "Master Admin account created successfully.",
+        "upi_id": req.upi_id,
+        "is_admin": True,
+        "token": access_token
+    }
 
 # ─── ADMIN ROUTES (JWT + ADMIN ROLE REQUIRED) ─────────────────────────────────
 @app.get("/api/admin/stats")
