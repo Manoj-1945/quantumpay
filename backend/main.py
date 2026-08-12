@@ -594,7 +594,7 @@ async def register(req: RegisterRequest, request: Request):
 async def login(req: LoginRequest, request: Request):
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT id, name, hashed_pw, balance FROM users WHERE upi_id=?", (req.upi_id,)
+            "SELECT id, name, hashed_pw, balance, is_admin FROM users WHERE upi_id=?", (req.upi_id,)
         ) as cursor:
             user = await cursor.fetchone()
     if not user or not verify_password(req.password, user[2]):
@@ -611,7 +611,7 @@ async def login(req: LoginRequest, request: Request):
         await db.commit()
     response.set_cookie(key="qp_session", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
     return {"success": True, "access_token": access_token, "refresh_token": refresh_token,
-            "token": access_token, "name": user[1], "upi_id": req.upi_id, "balance": user[3]}
+            "token": access_token, "name": user[1], "upi_id": req.upi_id, "balance": user[3], "is_admin": bool(user[4])}
 
 # ─── AUTH: REFRESH TOKEN ──────────────────────────────────────────────────────
 @app.post("/api/auth/refresh")
