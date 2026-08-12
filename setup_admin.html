@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>QuantumPay — Admin Setup</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100vh;background:#020510;font-family:'Outfit',sans-serif;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{background:rgba(8,12,35,0.95);border:1px solid rgba(0,245,255,0.2);border-radius:20px;padding:40px;width:100%;max-width:440px;box-shadow:0 0 60px rgba(0,245,255,0.05)}
+    .logo{text-align:center;margin-bottom:28px}
+    .logo-icon{font-size:2.5rem;margin-bottom:8px}
+    .logo-title{font-size:1.4rem;font-weight:800;color:#00f5ff}
+    .logo-sub{font-size:.8rem;color:#8090b0;margin-top:4px}
+    .field{margin-bottom:16px}
+    label{display:block;font-size:.78rem;color:#8090b0;margin-bottom:6px;font-weight:600;letter-spacing:.3px}
+    input{width:100%;background:rgba(0,245,255,0.04);border:1px solid rgba(0,245,255,0.15);border-radius:10px;padding:12px 14px;color:#e0eaff;font-size:.88rem;font-family:'Outfit',sans-serif;outline:none;transition:border-color .2s}
+    input:focus{border-color:rgba(0,245,255,0.5)}
+    .totp-note{font-size:.72rem;color:#ffcc00;margin-top:6px}
+    .btn{width:100%;padding:14px;background:linear-gradient(135deg,#00f5ff,#7b2fff);border:none;border-radius:12px;color:#000;font-size:1rem;font-weight:800;cursor:pointer;font-family:'Outfit',sans-serif;margin-top:8px;transition:all .2s;letter-spacing:.3px}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,245,255,0.3)}
+    .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .msg{margin-top:16px;padding:14px;border-radius:10px;font-size:.85rem;text-align:center;display:none}
+    .msg.success{background:rgba(0,255,170,0.1);border:1px solid rgba(0,255,170,0.3);color:#00ffaa}
+    .msg.error{background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b}
+    .security{text-align:center;font-size:.7rem;color:#8090b0;margin-top:20px}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">⚛</div>
+    <div class="logo-title">QuantumPay Admin Setup</div>
+    <div class="logo-sub">One-time Master Admin Registration</div>
+  </div>
+
+  <div class="field">
+    <label>FULL NAME</label>
+    <input id="name" type="text" value="Manoj Kumar G K" placeholder="Your full name"/>
+  </div>
+  <div class="field">
+    <label>EMAIL</label>
+    <input id="email" type="email" value="mmanojkumar9766@gmail.com" placeholder="your@email.com"/>
+  </div>
+  <div class="field">
+    <label>ADMIN UPI ID (Your Login Username)</label>
+    <input id="upi" type="text" value="admin@quantumpay" placeholder="admin@quantumpay"/>
+  </div>
+  <div class="field">
+    <label>PASSWORD</label>
+    <input id="pw" type="password" placeholder="Create a strong password"/>
+  </div>
+  <div class="field">
+    <label>6-DIGIT CODE FROM GOOGLE AUTHENTICATOR</label>
+    <input id="totp" type="text" maxlength="6" placeholder="e.g. 482910" style="font-size:1.4rem;letter-spacing:8px;text-align:center;font-family:'Space Mono',monospace"/>
+    <div class="totp-note">⚠ Open Google Authenticator on your phone → type the number showing for "QuantumPay Admin"</div>
+  </div>
+
+  <button class="btn" id="btn" onclick="createAdmin()">⚛ Create Master Admin Account</button>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="security">🔐 TOTP Protected · Zero-Trust Architecture · PQC Secured</div>
+</div>
+
+<script>
+const API = 'https://quantumpay-api-production-b5f1.up.railway.app';
+
+async function createAdmin() {
+  const btn = document.getElementById('btn');
+  const msg = document.getElementById('msg');
+  const name = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const upi = document.getElementById('upi').value.trim();
+  const pw = document.getElementById('pw').value;
+  const totp = document.getElementById('totp').value.trim();
+
+  if (!name || !email || !upi || !pw || !totp) {
+    showMsg('Please fill in all fields including the 6-digit code!', 'error');
+    return;
+  }
+  if (totp.length !== 6) {
+    showMsg('The TOTP code must be exactly 6 digits!', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⚛ Creating account...';
+
+  try {
+    const r = await fetch(`${API}/api/admin/bootstrap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, upi_id: upi, password: pw, totp_code: totp })
+    });
+    const data = await r.json();
+
+    if (r.ok) {
+      showMsg('✅ SUCCESS! Master Admin account created! Go to your website and log in with your UPI ID and password.', 'success');
+      btn.textContent = '✅ Account Created!';
+    } else if (r.status === 403) {
+      showMsg('❌ Wrong TOTP code — it expired! Open Google Authenticator, get the new code, and try again.', 'error');
+      btn.disabled = false;
+      btn.textContent = '⚛ Create Master Admin Account';
+    } else if (r.status === 400) {
+      showMsg('❌ ' + (data.detail || 'This UPI ID or Email is already registered.'), 'error');
+      btn.disabled = false;
+      btn.textContent = '⚛ Create Master Admin Account';
+    } else {
+      showMsg('❌ Error: ' + JSON.stringify(data), 'error');
+      btn.disabled = false;
+      btn.textContent = '⚛ Create Master Admin Account';
+    }
+  } catch(e) {
+    showMsg('❌ Could not connect to server: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '⚛ Create Master Admin Account';
+  }
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg ' + type;
+  el.style.display = 'block';
+}
+
+// Auto-focus TOTP field
+document.getElementById('totp').focus();
+</script>
+</body>
+</html>
