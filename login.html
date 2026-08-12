@@ -161,7 +161,7 @@
       localStorage.setItem('qp_name',data.name);
       localStorage.setItem('qp_upi',data.upi_id);
       localStorage.setItem('qp_balance',data.balance||10000);
-      window.location.href='pay.html';
+      if (data.is_admin) { window.location.href='admin.html'; } else { window.location.href='pay.html'; }
     }catch(ex){
       err.textContent='❌ '+ex.message;err.className='err show';
       btn.disabled=false;btn.innerHTML='<span class="btn-glow"></span>⚛ Sign In with Quantum Auth';
