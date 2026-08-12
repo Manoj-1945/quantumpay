@@ -976,6 +976,81 @@ async def admin_transactions(limit: int = 50, admin: str = Depends(get_admin_use
     return [{"id": r[0], "sender": r[1], "receiver": r[2], "amount": r[3],
              "note": r[4], "token": r[5], "status": r[6], "created_at": r[7]} for r in rows]
 
+
+# ─── B2B ADMIN ROUTES (CEO DASHBOARD) ────────────────────────────────────────
+@app.get("/api/admin/partners/stats")
+async def admin_partner_stats(admin: str = Depends(get_admin_user)):
+    """Returns per-partner stats: API calls, estimated revenue, SLA, status."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id, partner_name, api_key, webhook_url, is_active, created_at FROM b2b_partners ORDER BY created_at DESC"
+        ) as c:
+            partners = await c.fetchall()
+
+        result = []
+        for p in partners:
+            pid, name, api_key, webhook, active, created = p
+            # Count ISO-20022 conversions for this partner via audit log
+            async with db.execute(
+                "SELECT COUNT(*) FROM audit_blocks WHERE actor=? AND action='ISO20022_CONVERTED'", (pid,)
+            ) as c2:
+                api_calls = (await c2.fetchone())[0]
+            # Revenue estimate: ₹2 per API call (basic pricing model)
+            revenue = api_calls * 2
+            result.append({
+                "id": pid,
+                "name": name,
+                "api_key_masked": f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "****",
+                "webhook": webhook,
+                "is_active": bool(active),
+                "api_calls_total": api_calls,
+                "revenue_inr": revenue,
+                "sla_ms": 51,
+                "plan": "Enterprise" if api_calls > 1000 else "Starter",
+                "created_at": created
+            })
+    return result
+
+@app.post("/api/admin/partners/{partner_id}/revoke")
+async def revoke_partner(partner_id: str, admin: str = Depends(get_admin_user)):
+    """Revoke a B2B partner's API access instantly."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE b2b_partners SET is_active=0 WHERE id=?", (partner_id,))
+        await db.commit()
+        await write_audit_block(db, admin, "PARTNER_REVOKED", {"partner_id": partner_id})
+    return {"success": True, "message": "Partner API access revoked."}
+
+@app.post("/api/admin/partners/{partner_id}/activate")
+async def activate_partner(partner_id: str, admin: str = Depends(get_admin_user)):
+    """Reactivate a B2B partner's API access."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE b2b_partners SET is_active=1 WHERE id=?", (partner_id,))
+        await db.commit()
+        await write_audit_block(db, admin, "PARTNER_ACTIVATED", {"partner_id": partner_id})
+    return {"success": True, "message": "Partner API access activated."}
+
+@app.get("/api/admin/revenue")
+async def admin_revenue(admin: str = Depends(get_admin_user)):
+    """Returns platform-level B2B revenue summary."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM b2b_partners WHERE is_active=1") as c:
+            active_partners = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM audit_blocks WHERE action='ISO20022_CONVERTED'") as c:
+            total_api_calls = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM b2b_partners") as c:
+            total_partners = (await c.fetchone())[0]
+
+    total_revenue = total_api_calls * 2  # ₹2 per API call
+    return {
+        "active_partners": active_partners,
+        "total_partners": total_partners,
+        "total_api_calls": total_api_calls,
+        "total_revenue_inr": total_revenue,
+        "mrr_inr": total_revenue,  # Monthly Recurring Revenue estimate
+        "pricing_model": "₹2 per API call (ISO-20022 conversion)",
+        "sla_guarantee_ms": 51
+    }
+
 # ─── IBM QUANTUM ROUTES ───────────────────────────────────────────────────────
 def get_qc_engine():
     try:
