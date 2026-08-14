@@ -124,6 +124,7 @@ if not SECRET_KEY:
 ALGORITHM      = "HS256"
 TOKEN_EXPIRE   = 60       # access token: 60 minutes
 REFRESH_EXPIRE = 10080    # refresh token: 7 days (in minutes)
+DB_PATH = "quantum.db"
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     print("[WARN] DATABASE_URL not set. Please set it in Railway Variables.")
