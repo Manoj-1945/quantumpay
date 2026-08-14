@@ -130,12 +130,13 @@ if not DATABASE_URL:
 db_pool = None
 
 PRODUCTION_URL = os.getenv("RAILWAY_PUBLIC_DOMAIN", "quantumpay-api-production.up.railway.app")
+# FIX 5: localhost removed from production CORS
+_dev_origins = ["http://localhost:3000", "http://localhost:8000"] if os.environ.get("ENV") == "development" else []
 ALLOWED_ORIGINS = [
     f"https://{PRODUCTION_URL}",
     "https://quantumpay-api-production.up.railway.app",
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
+    "https://quantumpay-api-production-b5f1.up.railway.app",
+] + _dev_origins
 
 # bcrypt password context — unique salt per user, auto-generated
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -929,7 +930,17 @@ async def admin_bootstrap(req: AdminBootstrapRequest):
     if not totp.verify(req.totp_code, valid_window=1):
         raise HTTPException(status_code=403, detail="Invalid or expired TOTP code.")
 
-    # TOTP verified — create the Master Admin account
+    # FIX 1: Block if an admin already exists (prevent rogue admin creation)
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM users WHERE is_admin=1") as c:
+            admin_count = (await c.fetchone())[0]
+    if admin_count > 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Master Admin already exists. Bootstrap disabled. Contact your admin."
+        )
+
+    # TOTP verified + no existing admin — create the Master Admin account
     user_id = str(uuid.uuid4())
     hashed  = hash_password(req.password)
     try:
@@ -944,13 +955,12 @@ async def admin_bootstrap(req: AdminBootstrapRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Bootstrap failed: {str(e)}")
 
-    access_token = create_token({"sub": req.upi_id, "name": req.name})
+    # FIX 4: Do NOT return JWT token in response (force proper login flow)
     return {
         "success": True,
-        "message": "Master Admin account created successfully.",
+        "message": "Master Admin account created. Please log in via the login page.",
         "upi_id": req.upi_id,
-        "is_admin": True,
-        "token": access_token
+        "is_admin": True
     }
 
 # ─── ADMIN ROUTES (JWT + ADMIN ROLE REQUIRED) ─────────────────────────────────
@@ -1330,7 +1340,8 @@ if __name__ == "__main__":
 
 # ─── BANK SELF-SERVICE DASHBOARD API ─────────────────────────────────────────
 @app.get("/api/bank/profile")
-async def bank_profile(api_key: str):
+@limiter.limit("30/minute")  # FIX 2: rate limit
+async def bank_profile(api_key: str, request: Request):
     """Bank logs in with their API key — returns their profile + stats."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
@@ -1351,7 +1362,9 @@ async def bank_profile(api_key: str):
     }
 
 @app.get("/api/bank/calls/recent")
-async def bank_recent_calls(api_key: str, limit: int = 20):
+@limiter.limit("20/minute")  # FIX 2 + FIX 6: rate limit + cap at 100
+async def bank_recent_calls(api_key: str, request: Request, limit: int = 20):
+    limit = min(limit, 100)  # FIX 6: cap max rows
     """Returns the most recent API calls for this bank partner."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT id FROM b2b_partners WHERE api_key=?", (api_key,)) as c:
@@ -1371,7 +1384,8 @@ async def bank_recent_calls(api_key: str, limit: int = 20):
     ]
 
 @app.post("/api/bank/test-call")
-async def bank_test_call(api_key: str):
+@limiter.limit("10/minute")  # FIX 2: strict rate limit on test-call
+async def bank_test_call(api_key: str, request: Request):
     """Generates a real quantum token using the bank's API key — for dashboard testing."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT id, name, is_active FROM b2b_partners WHERE api_key=?", (api_key,)) as c:
