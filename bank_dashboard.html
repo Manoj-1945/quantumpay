@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>QuantumPay — Bank Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Space+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{--cyan:#00f5ff;--purple:#7b2fff;--green:#00ffaa;--yellow:#ffcc00;--red:#ff6b6b;--dim:#4a5580;--glass:rgba(8,12,35,0.9)}
+    body{background:#020510;color:#e0eaff;font-family:'Outfit',sans-serif;min-height:100vh}
+    canvas#bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+    nav{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:16px 40px;border-bottom:1px solid rgba(0,245,255,0.1);background:rgba(2,5,16,0.95);backdrop-filter:blur(20px)}
+    .nav-logo{font-size:1.2rem;font-weight:900;color:var(--cyan)}
+    .nav-logo span{color:#fff}
+    .nav-links{display:flex;gap:10px}
+    .nav-btn{padding:8px 16px;border-radius:8px;font-family:'Outfit',sans-serif;font-weight:600;font-size:.82rem;cursor:pointer;text-decoration:none;transition:all .2s;border:1px solid rgba(0,245,255,0.25);color:var(--cyan);background:transparent}
+    .nav-btn:hover{background:rgba(0,245,255,0.08)}
+
+    /* ── LOGIN GATE ── */
+    .gate{position:relative;z-index:5;min-height:80vh;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+    .gate-card{background:var(--glass);border:1px solid rgba(0,245,255,0.15);border-radius:24px;padding:48px;width:100%;max-width:460px;backdrop-filter:blur(20px);text-align:center}
+    .gate-icon{font-size:3rem;margin-bottom:16px}
+    .gate-title{font-size:1.5rem;font-weight:800;margin-bottom:8px}
+    .gate-sub{color:#8090b0;font-size:.9rem;margin-bottom:28px}
+    .gate input{width:100%;background:rgba(0,245,255,0.04);border:1px solid rgba(0,245,255,0.2);border-radius:12px;padding:14px 16px;color:#e0eaff;font-size:.9rem;font-family:'Space Mono',monospace;outline:none;text-align:center;letter-spacing:1px;margin-bottom:12px}
+    .gate input:focus{border-color:rgba(0,245,255,.5)}
+    .gate-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:12px;color:#000;font-weight:800;font-size:1rem;cursor:pointer;font-family:'Outfit',sans-serif}
+    .gate-hint{font-size:.75rem;color:var(--dim);margin-top:16px}
+    .gate-err{color:var(--red);font-size:.82rem;margin-top:8px;display:none}
+
+    /* ── DASHBOARD ── */
+    #dashboard{display:none;position:relative;z-index:5;padding:24px;max-width:1300px;margin:0 auto}
+    .dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+    .dash-title{font-size:1.6rem;font-weight:900}
+    .dash-title span{color:var(--cyan)}
+    .pill{display:inline-block;padding:4px 12px;border-radius:20px;font-size:.72rem;font-weight:700}
+    .pill.active{background:rgba(0,255,170,0.12);color:var(--green);border:1px solid rgba(0,255,170,0.3)}
+    .pill.revoked{background:rgba(255,107,107,0.12);color:var(--red);border:1px solid rgba(255,107,107,0.3)}
+
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+    @media(max-width:900px){.stats-grid{grid-template-columns:1fr 1fr}}
+    .stat{background:var(--glass);border:1px solid rgba(0,245,255,0.1);border-radius:16px;padding:22px;backdrop-filter:blur(20px)}
+    .stat-val{font-size:2rem;font-weight:900;font-family:'Space Mono',monospace;color:var(--cyan)}
+    .stat-lbl{font-size:.75rem;color:var(--dim);margin-top:4px}
+
+    .card{background:var(--glass);border:1px solid rgba(0,245,255,0.1);border-radius:16px;padding:24px;backdrop-filter:blur(20px);margin-bottom:20px}
+    .card-title{font-size:.95rem;font-weight:700;color:var(--cyan);margin-bottom:16px}
+
+    .tbl{width:100%;border-collapse:collapse;font-size:.8rem}
+    .tbl th{text-align:left;color:var(--dim);font-weight:600;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:.72rem;letter-spacing:.5px}
+    .tbl td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:#c0d0ff}
+    .tbl tr:last-child td{border:none}
+    .mono{font-family:'Space Mono',monospace;font-size:.72rem}
+
+    .code-block{background:#0a0e1f;border:1px solid rgba(0,245,255,0.1);border-radius:10px;padding:16px;font-family:'Space Mono',monospace;font-size:.75rem;color:#a0c0ff;line-height:1.8;position:relative;overflow:auto}
+    .copy-btn{position:absolute;top:10px;right:10px;background:rgba(0,245,255,0.1);border:1px solid rgba(0,245,255,0.2);color:var(--cyan);border-radius:6px;padding:4px 12px;font-size:.72rem;cursor:pointer;font-family:'Outfit',sans-serif}
+    .copy-btn:hover{background:rgba(0,245,255,0.2)}
+
+    .test-btn{padding:10px 20px;background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;font-size:.85rem}
+    .test-result{margin-top:12px;padding:12px;background:rgba(0,255,170,0.06);border:1px solid rgba(0,255,170,0.2);border-radius:8px;font-family:'Space Mono',monospace;font-size:.75rem;color:var(--green);display:none}
+
+    .key-display{background:#0a0e1f;border:1px solid rgba(0,245,255,0.1);border-radius:10px;padding:14px 16px;font-family:'Space Mono',monospace;font-size:.82rem;color:var(--cyan);display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .key-reveal{padding:6px 14px;background:transparent;border:1px solid rgba(0,245,255,0.2);color:var(--cyan);border-radius:6px;cursor:pointer;font-size:.75rem;font-family:'Outfit',sans-serif}
+
+    .logout-btn{padding:8px 18px;background:transparent;border:1px solid rgba(255,107,107,0.3);color:var(--red);border-radius:8px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:.82rem}
+  </style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+
+<nav>
+  <div class="nav-logo">⚛ Quantum<span>Pay</span> — Bank Dashboard</div>
+  <div class="nav-links">
+    <a class="nav-btn" href="demo.html">🎬 Live Demo</a>
+    <a class="nav-btn" href="b2b_portal.html">🏦 Partner Portal</a>
+    <a class="nav-btn" href="index.html">Home</a>
+  </div>
+</nav>
+
+<!-- LOGIN GATE -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="gate-icon">🔑</div>
+    <div class="gate-title">Bank API Dashboard</div>
+    <div class="gate-sub">Enter your API key to see your usage, billing, and integration details</div>
+    <input id="api-key-input" type="password" placeholder="qp_live_your_api_key_here" autocomplete="off"/>
+    <button class="gate-btn" onclick="connectDashboard()">Connect Dashboard →</button>
+    <div class="gate-err" id="gate-err">❌ Invalid API key. Check your key and try again.</div>
+    <div class="gate-hint">You received your API key when you registered on the Partner Portal.<br/>For demo: use <strong style="color:var(--cyan)">qp_demo_quantumpay_2024</strong></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="dash-header">
+    <div>
+      <div class="dash-title">Welcome, <span id="d-name">—</span></div>
+      <div style="margin-top:6px;display:flex;align-items:center;gap:10px">
+        <span class="pill active" id="d-status">ACTIVE</span>
+        <span style="color:var(--dim);font-size:.8rem">Plan: <strong id="d-plan" style="color:#fff">—</strong></span>
+        <span style="color:var(--dim);font-size:.8rem">Member since: <strong id="d-since" style="color:#fff">—</strong></span>
+      </div>
+    </div>
+    <button class="logout-btn" onclick="logout()">Sign Out</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat">
+      <div class="stat-val" id="s-calls">—</div>
+      <div class="stat-lbl">Total API Calls</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="s-revenue" style="color:var(--yellow)">—</div>
+      <div class="stat-lbl">Revenue Due (₹)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" style="color:var(--green)">51ms</div>
+      <div class="stat-lbl">Avg Latency (SLA)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" style="color:var(--green)">99.98%</div>
+      <div class="stat-lbl">Uptime</div>
+    </div>
+  </div>
+
+  <!-- API Key -->
+  <div class="card">
+    <div class="card-title">🔑 Your API Key</div>
+    <div class="key-display">
+      <span id="key-masked">qp_live_••••••••••••••••</span>
+      <button class="key-reveal" onclick="toggleKey()">Show / Hide</button>
+    </div>
+    <div style="margin-top:10px;font-size:.75rem;color:var(--dim)">Keep this key secret. Use it in the Authorization header of every API call.</div>
+  </div>
+
+  <!-- Test Call -->
+  <div class="card">
+    <div class="card-title">⚛ Test Your Integration</div>
+    <div style="font-size:.82rem;color:#8090b0;margin-bottom:14px">Click to make a real API call and get a live quantum token back.</div>
+    <button class="test-btn" id="test-btn" onclick="makeTestCall()">⚛ Generate Live Quantum Token</button>
+    <div class="test-result" id="test-result"></div>
+  </div>
+
+  <!-- Integration Code -->
+  <div class="card">
+    <div class="card-title">📋 Integration Code</div>
+    <div style="font-size:.82rem;color:#8090b0;margin-bottom:14px">Copy-paste this into your bank's payment system:</div>
+
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <button onclick="showCode('curl')" style="padding:6px 14px;background:rgba(0,245,255,0.1);border:1px solid rgba(0,245,255,0.2);color:var(--cyan);border-radius:6px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:.78rem">curl</button>
+      <button onclick="showCode('python')" style="padding:6px 14px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#8090b0;border-radius:6px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:.78rem">Python</button>
+      <button onclick="showCode('node')" style="padding:6px 14px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#8090b0;border-radius:6px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:.78rem">Node.js</button>
+    </div>
+
+    <div class="code-block" id="code-block" style="position:relative">
+      <button class="copy-btn" onclick="copyCode()">Copy</button>
+      <pre id="code-content"></pre>
+    </div>
+  </div>
+
+  <!-- Recent Calls -->
+  <div class="card">
+    <div class="card-title">📡 Recent API Calls</div>
+    <table class="tbl">
+      <thead><tr><th>CALL ID</th><th>AMOUNT</th><th>CURRENCY</th><th>STATUS</th><th>QUANTUM TOKEN</th><th>TIME</th></tr></thead>
+      <tbody id="calls-body">
+        <tr><td colspan="6" style="text-align:center;color:var(--dim);padding:30px">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = 'https://quantumpay-api-production-b5f1.up.railway.app';
+let currentKey = '';
+let fullKeyVisible = false;
+
+async function connectDashboard() {
+  const key = document.getElementById('api-key-input').value.trim();
+  const err = document.getElementById('gate-err');
+  err.style.display = 'none';
+  if(!key){err.textContent='Enter your API key first.';err.style.display='block';return;}
+
+  try {
+    const r = await fetch(`${API}/api/bank/profile?api_key=${encodeURIComponent(key)}`);
+    if(!r.ok){err.textContent='❌ Invalid API key. Check and try again.';err.style.display='block';return;}
+    const d = await r.json();
+    currentKey = key;
+    loadDashboard(d);
+    document.getElementById('gate').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    loadRecentCalls();
+    updateCode(key);
+  } catch(e) {
+    err.textContent='❌ Cannot connect to server. Try again.';err.style.display='block';
+  }
+}
+
+function loadDashboard(d) {
+  document.getElementById('d-name').textContent = d.name;
+  document.getElementById('d-plan').textContent = d.plan;
+  document.getElementById('d-since').textContent = d.created_at?d.created_at.substring(0,10):'—';
+  document.getElementById('s-calls').textContent = d.api_calls_total.toLocaleString();
+  document.getElementById('s-revenue').textContent = '₹'+d.revenue_inr.toLocaleString();
+  document.getElementById('d-status').textContent = d.is_active?'ACTIVE':'REVOKED';
+  document.getElementById('d-status').className = 'pill '+(d.is_active?'active':'revoked');
+  document.getElementById('key-masked').textContent = d.api_key_masked;
+}
+
+function toggleKey() {
+  const el = document.getElementById('key-masked');
+  fullKeyVisible = !fullKeyVisible;
+  el.textContent = fullKeyVisible ? currentKey : currentKey.substring(0,10)+'...'+currentKey.slice(-4);
+}
+
+async function loadRecentCalls() {
+  try {
+    const r = await fetch(`${API}/api/bank/calls/recent?api_key=${encodeURIComponent(currentKey)}&limit=10`);
+    const rows = await r.json();
+    const tbody = document.getElementById('calls-body');
+    if(!rows.length){
+      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:30px">No API calls yet. Make your first test call above!</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r=>`
+      <tr>
+        <td class="mono">${r.id.substring(0,10)}...</td>
+        <td>₹${r.amount||'—'}</td>
+        <td>${r.currency||'INR'}</td>
+        <td><span class="pill ${r.status==='success'?'active':'revoked'}">${r.status||'success'}</span></td>
+        <td class="mono" style="color:var(--cyan)">${r.token}</td>
+        <td style="color:var(--dim);font-size:.72rem">${r.created_at?r.created_at.substring(0,16).replace('T',' '):'—'}</td>
+      </tr>`).join('');
+  } catch(e) {
+    document.getElementById('calls-body').innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">No call history yet.</td></tr>';
+  }
+}
+
+async function makeTestCall() {
+  const btn = document.getElementById('test-btn');
+  const res = document.getElementById('test-result');
+  btn.disabled=true; btn.textContent='Generating...';
+  try {
+    const r = await fetch(`${API}/api/bank/test-call?api_key=${encodeURIComponent(currentKey)}`,{method:'POST'});
+    const d = await r.json();
+    res.textContent = `✅ SUCCESS\nToken: ${d.quantum_token}\nLatency: ${d.latency_ms}ms`;
+    res.style.display='block';
+    // Refresh stats
+    const prof = await fetch(`${API}/api/bank/profile?api_key=${encodeURIComponent(currentKey)}`).then(r=>r.json());
+    loadDashboard(prof);
+    loadRecentCalls();
+  } catch(e) {
+    res.textContent='❌ Test call failed: '+e.message;
+    res.style.color='var(--red)';
+    res.style.display='block';
+  }
+  btn.disabled=false; btn.textContent='⚛ Generate Live Quantum Token';
+}
+
+const CODES = {
+  curl: (key) => `curl -X POST "https://quantumpay-api-production-b5f1.up.railway.app/api/v1/b2b/generate-token" \
+  -H "X-API-Key: ${key}" \
+  -H "Content-Type: application/json" \
+  -d '{"sender":"hdfc@settle","receiver":"sbi@settle","amount":100000}'`,
+
+  python: (key) => `import requests
+
+headers = {"X-API-Key": "${key}"}
+payload = {"sender": "hdfc@settle", "receiver": "sbi@settle", "amount": 100000}
+
+r = requests.post(
+    "https://quantumpay-api-production-b5f1.up.railway.app/api/v1/b2b/generate-token",
+    json=payload, headers=headers
+)
+token = r.json()["quantum_token"]
+print("Quantum Token:", token)`,
+
+  node: (key) => `const res = await fetch("https://quantumpay-api-production-b5f1.up.railway.app/api/v1/b2b/generate-token", {
+  method: "POST",
+  headers: { "X-API-Key": "${key}", "Content-Type": "application/json" },
+  body: JSON.stringify({ sender: "hdfc@settle", receiver: "sbi@settle", amount: 100000 })
+});
+const { quantum_token } = await res.json();
+console.log("Quantum Token:", quantum_token);`
+};
+
+let currentLang = 'curl';
+function showCode(lang) { currentLang=lang; updateCode(currentKey); }
+function updateCode(key) {
+  document.getElementById('code-content').textContent = CODES[currentLang](key||'qp_your_key_here');
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(document.getElementById('code-content').textContent);
+  const btn = document.querySelector('.copy-btn');
+  btn.textContent='Copied!'; setTimeout(()=>btn.textContent='Copy',2000);
+}
+
+function logout() {
+  currentKey=''; document.getElementById('gate').style.display='flex';
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('api-key-input').value='';
+}
+
+// bg particles
+function initBg(){
+  const c=document.getElementById('bg'),ctx=c.getContext('2d');
+  const r=()=>{c.width=innerWidth;c.height=innerHeight;};
+  r();window.addEventListener('resize',r);
+  const pts=Array.from({length:50},()=>{return{x:Math.random()*innerWidth,y:Math.random()*innerHeight,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.2+.3,a:Math.random()*.2+.05,h:Math.random()>.5?190:270};});
+  (function draw(){requestAnimationFrame(draw);ctx.clearRect(0,0,c.width,c.height);pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=c.width;if(p.x>c.width)p.x=0;if(p.y<0)p.y=c.height;if(p.y>c.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`hsla(${p.h},100%,60%,${p.a})`;ctx.fill();});})();
+}
+
+window.addEventListener('DOMContentLoaded',()=>{initBg();updateCode('');});
+</script>
+</body>
+</html>
