@@ -103,10 +103,15 @@ class PGCompatPool:
     async def __aexit__(self, exc_type, exc, tb):
         await self.pool.release(self.conn)
 
-class aiosqlite:
+import aiosqlite as real_aiosqlite
+class aiosqlite_proxy:
     @staticmethod
     def connect(path):
-        return PGCompatPool(db_pool)
+        if db_pool:
+            return PGCompatPool(db_pool)
+        return real_aiosqlite.connect(path)
+
+aiosqlite = aiosqlite_proxy
 # -----------------------------
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
