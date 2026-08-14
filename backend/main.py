@@ -19,7 +19,8 @@ NEW FEATURES:
   [14] WebSocket /ws/live now broadcasts key_pool + b2b_transactions stats live
 """
 
-import asyncio, hashlib, hmac, json, os, secrets, time, uuid
+import asyncio, hashlib, hmac, json, os, secrets, time, uuid, pyotp
+# Replaced imports to include pyotp, hmac, json, os, secrets, time, uuid
 from datetime import datetime, timedelta
 from typing import Optional, List
 
@@ -933,11 +934,7 @@ async def admin_bootstrap(req: AdminBootstrapRequest):
         raise HTTPException(status_code=503, detail="Admin provisioning not configured.")
 
     # Verify the 6-digit TOTP code against the current 30-second window
-    totp = pyotp.TOTP(totp_secret)
-    if not totp.verify(req.totp_code, valid_window=1):
-        raise HTTPException(status_code=403, detail="Invalid or expired TOTP code.")
-
-    # FIX 1: Block if an admin already exists (prevent rogue admin creation)
+        # FIX 1: Block if an admin already exists (prevent rogue admin creation)
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT COUNT(*) FROM users WHERE is_admin=1") as c:
             admin_count = (await c.fetchone())[0]
@@ -946,6 +943,12 @@ async def admin_bootstrap(req: AdminBootstrapRequest):
             status_code=409,
             detail="Master Admin already exists. Bootstrap disabled. Contact your admin."
         )
+
+    totp = pyotp.TOTP(totp_secret)
+    if not totp.verify(req.totp_code, valid_window=1):
+        raise HTTPException(status_code=403, detail="Invalid or expired TOTP code.")
+
+
 
     # TOTP verified + no existing admin — create the Master Admin account
     user_id = str(uuid.uuid4())
