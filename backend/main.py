@@ -325,18 +325,6 @@ class ISO20022Request(BaseModel):
     amount: Optional[float] = 100000.0
     currency: Optional[str] = "INR"
 
-# ── Seed demo partner account ──────────────────────────────
-    demo_key = os.environ.get("DEMO_API_KEY", "qp_demo_quantumpay_2024")
-    async with db.execute("SELECT id FROM b2b_partners WHERE api_key=?", (demo_key,)) as _c:
-        _exists = await _c.fetchone()
-    if not _exists:
-        import uuid as _uuid
-        await db.execute(
-            "INSERT INTO b2b_partners (id,name,api_key,webhook_url,plan,api_calls_total,is_active) VALUES (?,?,?,?,?,?,?)",
-            (str(_uuid.uuid4()), "QuantumPay Live Demo", demo_key, "", "Enterprise", 0, 1)
-        )
-        await db.commit()
-
 # ─── JWT AUTH ─────────────────────────────────────────────────────────────────
 def create_token(data: dict, expires_minutes: int = None):
     payload = data.copy()
@@ -525,6 +513,25 @@ async def startup():
         print("[ERROR] DATABASE_URL missing, DB features disabled")
 
 # ─── HEALTH & ROOT ────────────────────────────────────────────────────────────
+
+    # ── Seed demo partner (runs inside init_db async function) ──────────────────
+    try:
+        import uuid as _uuid
+        _demo_key = os.environ.get("DEMO_API_KEY", "qp_demo_quantumpay_2024")
+        async with aiosqlite.connect(DB_PATH) as _db:
+            async with _db.execute(
+                "SELECT id FROM b2b_partners WHERE api_key=?", (_demo_key,)
+            ) as _c:
+                _exists = await _c.fetchone()
+            if not _exists:
+                await _db.execute(
+                    "INSERT INTO b2b_partners (id,name,api_key,webhook_url,plan,api_calls_total,is_active) VALUES (?,?,?,?,?,?,?)",
+                    (str(_uuid.uuid4()), "QuantumPay Live Demo", _demo_key, "", "Enterprise", 0, 1)
+                )
+                await _db.commit()
+    except Exception:
+        pass  # Demo seed is non-critical
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     try:
