@@ -28,7 +28,8 @@
   </style>
 </head>
 <body>
-<div class="card">
+<div id="setup-done" style="display:none;text-align:center;padding:20px"><div style="font-size:3rem;margin-bottom:12px">&#10003;</div><div style="font-size:1.2rem;font-weight:800;color:#00ffaa;margin-bottom:8px">Admin Already Registered</div><div style="color:#8090b0;font-size:.88rem;margin-bottom:20px">A Master Admin account already exists. This setup page is now disabled for security.</div><a href="login.html" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#00f5ff,#7b2fff);border-radius:10px;color:#000;font-weight:700;text-decoration:none">Go to Login</a></div>
+<div class="card" id="setup-form">
   <div class="logo">
     <div class="logo-icon">⚛</div>
     <div class="logo-title">QuantumPay Admin Setup</div>
@@ -126,7 +127,25 @@ function showMsg(text, type) {
   el.style.display = 'block';
 }
 
-// Auto-focus TOTP field
+
+  // FIX 3: Auto-check if admin already exists — disable form if so
+  async function checkAdminExists() {
+    try {
+      const r = await fetch(API + '/api/admin/bootstrap', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name:'check',email:'check@check.com',upi_id:'check',password:'check',totp_code:'000000'})
+      });
+      const d = await r.json();
+      if (r.status === 409) {
+        document.getElementById('setup-form').style.display = 'none';
+        document.getElementById('setup-done').style.display = 'block';
+      }
+    } catch(e) {}
+  }
+  checkAdminExists();
+
+  // Auto-focus TOTP field
 document.getElementById('totp').focus();
 </script>
 </body>
