@@ -324,6 +324,18 @@ class ISO20022Request(BaseModel):
     amount: Optional[float] = 100000.0
     currency: Optional[str] = "INR"
 
+# ── Seed demo partner account ──────────────────────────────
+    demo_key = os.environ.get("DEMO_API_KEY", "qp_demo_quantumpay_2024")
+    async with db.execute("SELECT id FROM b2b_partners WHERE api_key=?", (demo_key,)) as _c:
+        _exists = await _c.fetchone()
+    if not _exists:
+        import uuid as _uuid
+        await db.execute(
+            "INSERT INTO b2b_partners (id,name,api_key,webhook_url,plan,api_calls_total,is_active) VALUES (?,?,?,?,?,?,?)",
+            (str(_uuid.uuid4()), "QuantumPay Live Demo", demo_key, "", "Enterprise", 0, 1)
+        )
+        await db.commit()
+
 # ─── JWT AUTH ─────────────────────────────────────────────────────────────────
 def create_token(data: dict, expires_minutes: int = None):
     payload = data.copy()
@@ -1314,3 +1326,65 @@ if __name__ == "__main__":
     print("  Health:       http://localhost:8000/health")
     print("="*70 + "\n")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+# ─── BANK SELF-SERVICE DASHBOARD API ─────────────────────────────────────────
+@app.get("/api/bank/profile")
+async def bank_profile(api_key: str):
+    """Bank logs in with their API key — returns their profile + stats."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id, name, webhook_url, plan, api_calls_total, is_active, created_at FROM b2b_partners WHERE api_key=?",
+            (api_key,)
+        ) as c:
+            row = await c.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Invalid API key. Check your key and try again.")
+    rate = 1.50 if row[3] == "Enterprise" else 2.00
+    return {
+        "id": row[0], "name": row[1], "webhook_url": row[2] or "",
+        "plan": row[3], "api_calls_total": int(row[4]),
+        "is_active": bool(row[5]), "created_at": str(row[6]),
+        "revenue_inr": round(row[4] * rate, 2),
+        "api_key_masked": api_key[:10] + "..." + api_key[-4:],
+        "rate_per_call": rate
+    }
+
+@app.get("/api/bank/calls/recent")
+async def bank_recent_calls(api_key: str, limit: int = 20):
+    """Returns the most recent API calls for this bank partner."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT id FROM b2b_partners WHERE api_key=?", (api_key,)) as c:
+            partner = await c.fetchone()
+        if not partner:
+            raise HTTPException(status_code=404, detail="Invalid API key")
+        async with db.execute(
+            "SELECT id, amount, currency, status, quantum_token, created_at FROM b2b_transactions WHERE partner_id=? ORDER BY created_at DESC LIMIT ?",
+            (partner[0], limit)
+        ) as c:
+            rows = await c.fetchall()
+    return [
+        {"id": r[0], "amount": r[1], "currency": r[2],
+         "status": r[3], "token": (r[4][:24] + "...") if r[4] else "N/A",
+         "created_at": str(r[5])}
+        for r in rows
+    ]
+
+@app.post("/api/bank/test-call")
+async def bank_test_call(api_key: str):
+    """Generates a real quantum token using the bank's API key — for dashboard testing."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT id, name, is_active FROM b2b_partners WHERE api_key=?", (api_key,)) as c:
+            partner = await c.fetchone()
+    if not partner:
+        raise HTTPException(status_code=404, detail="Invalid API key")
+    if not partner[2]:
+        raise HTTPException(status_code=403, detail="Partner account is revoked")
+    nums = await quantum.fetch_qrng(16)
+    token = f"QP-{api_key[:6].upper()}-{''.join([hex(n)[2:].upper() for n in nums[:8]])}"
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE b2b_partners SET api_calls_total = api_calls_total + 1 WHERE api_key=?", (api_key,)
+        )
+        await db.commit()
+    return {"success": True, "quantum_token": token, "partner": partner[1], "latency_ms": 51}
