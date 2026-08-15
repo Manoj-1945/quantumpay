@@ -27,6 +27,7 @@ from kyber_py.ml_kem import ML_KEM_1024
 from dilithium_py.ml_dsa import ML_DSA_87
 
 import httpx
+import apprise
 from fastapi import FastAPI, Header, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -225,6 +226,7 @@ async def init_db():
                 status TEXT DEFAULT 'success',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE TABLE IF NOT EXISTS admin_settings (key TEXT PRIMARY KEY, value TEXT);
             CREATE TABLE IF NOT EXISTS audit_blocks (
                 block_num SERIAL PRIMARY KEY,
                 block_hash TEXT NOT NULL,
@@ -462,6 +464,20 @@ async def write_audit_block(db, actor: str, action: str, data: dict = None):
     return block_hash
 
 # ─── BEHAVIORAL ANALYTICS ─────────────────────────────────────────────────────
+
+async def trigger_security_alert(message: str):
+    try:
+        async with aiosqlite.connect(DB_PATH) as db:
+            async with db.execute("SELECT value FROM admin_settings WHERE key='alert_url'") as c:
+                row = await c.fetchone()
+                if not row or not row[0]: return
+                alert_url = row[0]
+        apobj = apprise.Apprise()
+        apobj.add(alert_url)
+        apobj.notify(body=message, title="🚨 QuantumPay Security Alert")
+    except Exception as e:
+        print(f"[WARN] Failed to trigger alert: {e}")
+
 class BehavioralAnalytics:
     def compute_anomaly_score(self, events: list, new_event: dict) -> float:
         score = 0.0
@@ -982,6 +998,52 @@ async def admin_bootstrap(req: AdminBootstrapRequest):
     }
 
 # ─── ADMIN ROUTES (JWT + ADMIN ROLE REQUIRED) ─────────────────────────────────
+
+class AlertConfigRequest(BaseModel):
+    alert_url: str
+
+@app.post("/api/admin/alerts/config")
+async def config_alerts(req: AlertConfigRequest, admin: str = Depends(get_admin_user)):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("INSERT INTO admin_settings (key, value) VALUES ('alert_url', ?) ON CONFLICT(key) DO UPDATE SET value=?", (req.alert_url, req.alert_url))
+        await db.commit()
+    return {"success": True, "message": "Alert route configured successfully."}
+
+class LedgerBroadcastRequest(BaseModel):
+    github_token: str
+
+@app.post("/api/admin/ledger/broadcast")
+async def broadcast_ledger(req: LedgerBroadcastRequest, admin: str = Depends(get_admin_user)):
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT block_hash, timestamp FROM audit_blocks ORDER BY block_num DESC LIMIT 1") as c:
+            row = await c.fetchone()
+            if not row: return {"success": False, "message": "No blocks to broadcast."}
+            block_hash, ts = row
+            
+    ledger_msg = f"QuantumPay Immutable Ledger Broadcast\nTimestamp: {ts}\nRoot Hash: {block_hash}"
+    encoded = base64.b64encode(ledger_msg.encode()).decode()
+    
+    headers = {
+        "Authorization": f"Bearer {req.github_token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        # Check if file exists to get SHA
+        get_url = f"https://api.github.com/repos/Manoj-1945/quantumpay/contents/public_ledger.txt?ref=b2b-portal"
+        r_get = await client.get(get_url, headers=headers)
+        payload = {"message": f"ledger: Cryptographic Broadcast {ts}", "content": encoded, "branch": "b2b-portal"}
+        if r_get.status_code == 200:
+            payload["sha"] = r_get.json()["sha"]
+            
+        r_put = await client.put(get_url.split("?")[0], headers=headers, json=payload)
+        
+        if r_put.status_code in [200, 201]:
+            return {"success": True, "message": "Ledger broadcasted to GitHub successfully!", "hash": block_hash}
+        else:
+            return {"success": False, "message": f"GitHub API Error: {r_put.text}"}
+
 @app.get("/api/admin/stats")
 async def admin_stats(admin: str = Depends(get_admin_user)):
     async with aiosqlite.connect(DB_PATH) as db:
