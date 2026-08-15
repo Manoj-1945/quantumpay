@@ -104,12 +104,8 @@ async function createAdmin() {
     if (r.ok) {
       showMsg('✅ SUCCESS! Master Admin account created! Go to your website and log in with your UPI ID and password.', 'success');
       btn.textContent = '✅ Account Created!';
-    } else if (r.status === 403) {
-      showMsg('❌ Wrong TOTP code — it expired! Open Google Authenticator, get the new code, and try again.', 'error');
-      btn.disabled = false;
-      btn.textContent = '⚛ Create Master Admin Account';
-    } else if (r.status === 400) {
-      showMsg('❌ ' + (data.detail || 'This UPI ID or Email is already registered.'), 'error');
+    } else if (r.status === 403 || r.status === 400 || r.status === 503 || r.status === 500) {
+      showMsg('❌ ' + (data.detail || 'Server configuration error. Check Railway logs.'), 'error');
       btn.disabled = false;
       btn.textContent = '⚛ Create Master Admin Account';
     } else {
