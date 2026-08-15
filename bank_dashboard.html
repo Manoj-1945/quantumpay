@@ -136,6 +136,26 @@
     <div style="margin-top:10px;font-size:.75rem;color:var(--dim)">Keep this key secret. Use it in the Authorization header of every API call.</div>
   </div>
 
+  
+  <!-- Webhook Config -->
+  <div class="card">
+    <div class="card-title">🔗 Webhook Configuration</div>
+    <div style="font-size:.82rem;color:#8090b0;margin-bottom:14px">Set your endpoint to receive real-time cryptographic transaction receipts.</div>
+    <div style="display:flex;gap:10px;margin-bottom:10px;">
+      <input type="text" id="webhook-url-input" placeholder="https://api.yourbank.com/webhook" style="flex:1;padding:10px;background:#0d1117;border:1px solid #1f2937;border-radius:6px;color:#fff;font-family:monospace;font-size:.85rem">
+      <button onclick="saveWebhook()" style="padding:0 20px;background:var(--cyan);color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Save</button>
+    </div>
+    <div id="webhook-msg" style="font-size:.8rem;margin-bottom:10px;display:none;"></div>
+    <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.05)">
+      <div style="font-size:.8rem;color:var(--dim);margin-bottom:5px">Webhook Secret (HMAC-SHA256 Signature Key):</div>
+      <div class="key-display">
+        <span id="webhook-secret-masked" style="color:var(--yellow)">••••••••••••••••••••••••••••••••</span>
+        <button class="key-reveal" onclick="toggleWebhookSecret()">Show / Hide</button>
+      </div>
+      <div style="margin-top:10px;font-size:.75rem;color:var(--dim)">Use this secret to verify the <code style="color:var(--cyan)">X-QuantumPay-Signature</code> header on incoming webhooks.</div>
+    </div>
+  </div>
+
   <!-- Test Call -->
   <div class="card">
     <div class="card-title">⚛ Test Your Integration</div>
@@ -199,7 +219,71 @@ async function connectDashboard() {
   }
 }
 
+
+let webhookSecretFull = '';
+let webhookSecretVisible = false;
+
 function loadDashboard(d) {
+  document.getElementById('b-name').textContent = d.name;
+  document.getElementById('d-plan').textContent = d.plan;
+  document.getElementById('d-since').textContent = new Date(d.created_at).toLocaleDateString();
+  document.getElementById('s-calls').textContent = d.api_calls_total;
+  document.getElementById('s-revenue').textContent = (d.api_calls_total * 0.05).toFixed(2);
+  document.getElementById('key-masked').textContent = 'qp_live_••••••••••••••••';
+  
+  if (d.webhook_url) document.getElementById('webhook-url-input').value = d.webhook_url;
+  if (d.webhook_secret) {
+    webhookSecretFull = d.webhook_secret;
+    document.getElementById('webhook-secret-masked').textContent = '••••••••••••••••••••••••••••••••';
+  } else {
+    document.getElementById('webhook-secret-masked').textContent = 'Not generated yet';
+  }
+}
+
+function toggleWebhookSecret() {
+  if(!webhookSecretFull) return;
+  const el = document.getElementById('webhook-secret-masked');
+  if(webhookSecretVisible) {
+    el.textContent = '••••••••••••••••••••••••••••••••';
+    webhookSecretVisible = false;
+  } else {
+    el.textContent = webhookSecretFull;
+    webhookSecretVisible = true;
+  }
+}
+
+async function saveWebhook() {
+  const url = document.getElementById('webhook-url-input').value.trim();
+  const msg = document.getElementById('webhook-msg');
+  msg.style.display = 'block';
+  msg.style.color = '#fff';
+  msg.textContent = 'Saving...';
+  
+  try {
+    const res = await fetch(`${API}/api/bank/webhook/config?api_key=${encodeURIComponent(currentKey)}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({webhook_url: url})
+    });
+    const d = await res.json();
+    if(res.ok) {
+      msg.style.color = 'var(--green)';
+      msg.textContent = '✅ Webhook saved successfully!';
+      webhookSecretFull = d.webhook_secret;
+      toggleWebhookSecret(); toggleWebhookSecret(); // refresh mask
+    } else {
+      msg.style.color = 'var(--red)';
+      msg.textContent = '❌ Failed to save webhook.';
+    }
+  } catch(e) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = '❌ Network error.';
+  }
+  setTimeout(() => { msg.style.display = 'none'; }, 3000);
+}
+
+/* Original loadDashboard replaced */
+function _oldLoadDashboard(d) {
   document.getElementById('d-name').textContent = d.name;
   document.getElementById('d-plan').textContent = d.plan;
   document.getElementById('d-since').textContent = d.created_at?d.created_at.substring(0,10):'—';
