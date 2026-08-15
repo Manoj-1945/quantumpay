@@ -23,6 +23,8 @@ import asyncio, hashlib, hmac, json, os, secrets, time, uuid, pyotp
 # Replaced imports to include pyotp, hmac, json, os, secrets, time, uuid
 from datetime import datetime, timedelta
 from typing import Optional, List
+from kyber_py.ml_kem import ML_KEM_1024
+from dilithium_py.ml_dsa import ML_DSA_87
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
