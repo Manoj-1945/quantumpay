@@ -13,3 +13,5 @@ limits==3.13.0
 pyotp==2.9.0
 
 aiosqlite==0.20.0
+kyber-py==1.2.0
+dilithium-py==1.4.0
