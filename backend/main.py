@@ -202,8 +202,7 @@ app.add_middleware(
 
 # ─── DATABASE ────────────────────────────────────────────────────────────────
 async def init_db():
-    if not db_pool: return
-    async with db_pool.acquire() as conn:
+    async with aiosqlite.connect(DB_PATH) as conn:
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
@@ -228,7 +227,7 @@ async def init_db():
             );
             CREATE TABLE IF NOT EXISTS admin_settings (key TEXT PRIMARY KEY, value TEXT);
             CREATE TABLE IF NOT EXISTS audit_blocks (
-                block_num SERIAL PRIMARY KEY,
+                block_num INTEGER PRIMARY KEY AUTOINCREMENT,
                 block_hash TEXT NOT NULL,
                 prev_hash TEXT NOT NULL,
                 actor TEXT NOT NULL,
@@ -237,7 +236,7 @@ async def init_db():
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS behavior_log (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
                 event_type TEXT NOT NULL,
                 ip_address TEXT,
@@ -246,7 +245,7 @@ async def init_db():
                 anomaly_score REAL DEFAULT 0.0
             );
             CREATE TABLE IF NOT EXISTS threat_log (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 attack_type TEXT,
                 source_ip TEXT,
                 layer_hit TEXT,
@@ -273,7 +272,7 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS key_pool (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 token TEXT NOT NULL,
                 status TEXT DEFAULT 'AVAILABLE',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -528,14 +527,9 @@ async def refill_key_pool():
 # ─── STARTUP ──────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
-    global db_pool
-    if DATABASE_URL:
-        db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=20, command_timeout=10.0, max_inactive_connection_lifetime=300.0)
-        await init_db()
-        asyncio.create_task(refill_key_pool())
-        print("[STARTED] QuantumPay v5.2 — PostgreSQL Active")
-    else:
-        print("[ERROR] DATABASE_URL missing, DB features disabled")
+    await init_db()
+    asyncio.create_task(refill_key_pool())
+    print("[STARTED] QuantumPay v5.2 — SQLite Engine Active")
 
 # ─── HEALTH & ROOT ────────────────────────────────────────────────────────────
 
