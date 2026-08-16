@@ -67,22 +67,41 @@ class PGCompatConnection:
             res += f'${i}' + parts[i]
         return res
 
-    async def execute(self, query, args=None):
-        query = self.convert_sql(query)
-        if args:
-            if query.strip().upper().startswith("SELECT") or " RETURNING " in query.upper():
-                recs = await self.conn.fetch(query, *args)
-                return PGCompatCursor(recs)
+    class _ExecWrapper:
+        def __init__(self, parent, query, args):
+            self.parent = parent
+            self.query = parent.convert_sql(query)
+            self.args = args
+            self._cursor = None
+        
+        async def _run(self):
+            if self.args:
+                if self.query.strip().upper().startswith("SELECT") or " RETURNING " in self.query.upper():
+                    recs = await self.parent.conn.fetch(self.query, *self.args)
+                    self._cursor = PGCompatCursor(recs)
+                else:
+                    await self.parent.conn.execute(self.query, *self.args)
+                    self._cursor = PGCompatCursor([])
             else:
-                await self.conn.execute(query, *args)
-                return PGCompatCursor([])
-        else:
-            if query.strip().upper().startswith("SELECT") or " RETURNING " in query.upper():
-                recs = await self.conn.fetch(query)
-                return PGCompatCursor(recs)
-            else:
-                await self.conn.execute(query)
-                return PGCompatCursor([])
+                if self.query.strip().upper().startswith("SELECT") or " RETURNING " in self.query.upper():
+                    recs = await self.parent.conn.fetch(self.query)
+                    self._cursor = PGCompatCursor(recs)
+                else:
+                    await self.parent.conn.execute(self.query)
+                    self._cursor = PGCompatCursor([])
+            return self._cursor
+
+        def __await__(self):
+            return self._run().__await__()
+
+        async def __aenter__(self):
+            return await self._run()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+    def execute(self, query, args=None):
+        return self._ExecWrapper(self, query, args)
                 
     async def executescript(self, script):
         await self.conn.execute(script)
