@@ -655,14 +655,17 @@ async def register(req: RegisterRequest, request: Request, response: Response):
             "token": access_token, "upi_id": req.upi_id, "name": req.name}
 
 # ─── AUTH: LOGIN ──────────────────────────────────────────────────────────────
-@app.post("/api/auth/login")
-@limiter.limit("10/minute")
 
 @app.get("/api/debug/godmode")
-async def wipe_admin():
+async def wipe_admin(request: Request):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM users WHERE is_admin=1")
     return {"status": "WIPED", "message": "Master Admin deleted from PostgreSQL. You can now register again."}
+
+@app.post("/api/auth/login")
+@limiter.limit("10/minute")
+
+
 
 async def login(req: LoginRequest, request: Request, response: Response):
     async with aiosqlite.connect(DB_PATH) as db:
