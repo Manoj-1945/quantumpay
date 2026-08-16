@@ -5,7 +5,7 @@
    Real ANU QRNG (proxied) + PQC + JWT Auth
    ===================================================== */
 
-const API = 'http://localhost:8000'; // ← Backend URL
+const API = ''; // ← Backend URL
 const AUTH_TOKEN = () => localStorage.getItem('qp_token') || '';
 const AUTH_HDR   = () => ({ 'Authorization': `Bearer ${AUTH_TOKEN()}`, 'Content-Type': 'application/json' });
 
