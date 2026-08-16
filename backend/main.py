@@ -171,6 +171,7 @@ ALLOWED_ORIGINS = [
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
+    password = password[:72]
     return pwd_ctx.hash(password)
 
 def verify_password(plain: str, hashed: str) -> bool:
