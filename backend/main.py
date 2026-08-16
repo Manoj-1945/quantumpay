@@ -28,7 +28,7 @@ from dilithium_py.ml_dsa import ML_DSA_87
 
 import httpx
 import apprise
-from fastapi import FastAPI, Header, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, Header, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -634,7 +634,7 @@ async def get_pqc_token():
 # ─── AUTH: REGISTER ───────────────────────────────────────────────────────────
 @app.post("/api/auth/register")
 @limiter.limit("5/minute")
-async def register(req: RegisterRequest, request: Request):
+async def register(req: RegisterRequest, request: Request, response: Response):
     user_id = str(uuid.uuid4())
     hashed  = hash_password(req.password)   # bcrypt with unique per-user salt
     try:
@@ -650,13 +650,14 @@ async def register(req: RegisterRequest, request: Request):
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
     access_token  = create_token({"sub": req.upi_id, "name": req.name})
     refresh_token = create_refresh_token({"sub": req.upi_id, "name": req.name})
+    response.set_cookie(key="qp_session", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
     return {"success": True, "access_token": access_token, "refresh_token": refresh_token,
             "token": access_token, "upi_id": req.upi_id, "name": req.name}
 
 # ─── AUTH: LOGIN ──────────────────────────────────────────────────────────────
 @app.post("/api/auth/login")
 @limiter.limit("10/minute")
-async def login(req: LoginRequest, request: Request):
+async def login(req: LoginRequest, request: Request, response: Response):
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT id, name, hashed_pw, balance, is_admin FROM users WHERE upi_id=?", (req.upi_id,)
@@ -674,6 +675,7 @@ async def login(req: LoginRequest, request: Request):
             (user[0], "LOGIN", request.client.host if request.client else "unknown")
         )
         await db.commit()
+    response.set_cookie(key="qp_session", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
     response.set_cookie(key="qp_session", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
     return {"success": True, "access_token": access_token, "refresh_token": refresh_token,
             "token": access_token, "name": user[1], "upi_id": req.upi_id, "balance": user[3], "is_admin": bool(user[4])}
