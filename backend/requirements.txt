@@ -16,3 +16,5 @@ aiosqlite==0.20.0
 kyber-py==1.2.0
 dilithium-py==1.4.0
 apprise==1.8.0
+
+bcrypt==3.2.2
