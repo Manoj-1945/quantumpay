@@ -1246,7 +1246,7 @@ async def rbi_sandbox_verify():
             "timestamp": datetime.utcnow()}
 
 @app.post("/api/npci/switch-settlement")
-async def npci_switch_settlement(req: dict):
+async def npci_switch_settlement(req: dict, _admin: str = Depends(get_admin_user)):
     tx_id  = req.get("tx_id", str(uuid.uuid4()))
     amount = req.get("amount", 0)
     q_bytes  = await quantum.get_qrng_bytes(16)
@@ -1495,7 +1495,7 @@ async def bank_recent_calls(api_key: str, request: Request, limit: int = 20):
 
 @app.post("/api/bank/test-call")
 @limiter.limit("10/minute")  # FIX 2: strict rate limit on test-call
-async def bank_test_call(api_key: str, request: Request):
+async def bank_test_call(api_key: str, request: Request, _admin: str = Depends(get_admin_user)):
     """Generates a real quantum token using the bank's API key — for dashboard testing."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT id, name, is_active FROM b2b_partners WHERE api_key=?", (api_key,)) as c:
