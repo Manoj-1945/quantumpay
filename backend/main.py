@@ -974,7 +974,8 @@ async def websocket_live(ws: WebSocket):
 
 # ─── HIDDEN ADMIN BOOTSTRAP (TOTP PROTECTED — ZERO UI) ───────────────────────
 @app.post("/api/admin/bootstrap")
-async def admin_bootstrap(req: AdminBootstrapRequest):
+@limiter.limit("3/minute")
+async def admin_bootstrap(req: AdminBootstrapRequest, request: Request):
     """
     CLASSIFIED ENDPOINT — Zero-UI Admin Account Creation.
     Protected by TOTP (Time-Based One-Time Password).
@@ -1341,7 +1342,8 @@ async def b2b_generate_token(req: B2BPaymentRequest):
             "timestamp": datetime.utcnow()}
 
 @app.post("/api/v1/b2b/verify")
-async def verify_token(req: VerifyTokenRequest):
+@limiter.limit("30/minute")
+async def verify_token(req: VerifyTokenRequest, request: Request):
     token = req.quantum_proof_token.strip()
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
