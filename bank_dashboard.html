@@ -368,7 +368,6 @@ print("Quantum Token:", token)`,
   body: JSON.stringify({ sender: "hdfc@settle", receiver: "sbi@settle", amount: 100000 })
 });
 const { quantum_token } = await res.json();
-console.log("Quantum Token:", quantum_token);`
 };
 
 let currentLang = 'curl';
