@@ -647,7 +647,7 @@ async def register(req: RegisterRequest, request: Request, response: Response):
             await write_audit_block(db, req.upi_id, "USER_REGISTERED",
                                     {"name": req.name, "email": req.email})
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
+        raise HTTPException(status_code=400, detail="Registration failed. UPI ID or email may already be taken.")
     access_token  = create_token({"sub": req.upi_id, "name": req.name})
     refresh_token = create_refresh_token({"sub": req.upi_id, "name": req.name})
     response.set_cookie(key="qp_session", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
@@ -1016,7 +1016,7 @@ async def admin_bootstrap(req: AdminBootstrapRequest, request: Request):
             await write_audit_block(db, req.upi_id, "ADMIN_BOOTSTRAP",
                                     {"name": req.name, "email": req.email, "method": "TOTP"})
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Bootstrap failed: {str(e)}")
+        raise HTTPException(status_code=400, detail="Admin setup failed. Please try again.")
 
     # FIX 4: Do NOT return JWT token in response (force proper login flow)
     return {
@@ -1291,7 +1291,7 @@ async def register_partner(req: B2BPartnerRequest, admin: str = Depends(get_admi
             )
             await db.commit()
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Partner registration failed: {e}")
+        raise HTTPException(status_code=400, detail="Partner registration failed. API key may already exist.")
     return {"success": True, "partner_id": partner_id, "partner_name": req.partner_name,
             "api_key": api_key,
             "api_key_note": "Store this securely. Use in X-API-Key header for all B2B calls.",
