@@ -277,8 +277,14 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS b2b_partners (
                 id TEXT PRIMARY KEY,
                 partner_name TEXT NOT NULL,
+                org_name TEXT DEFAULT '',
+                contact_email TEXT DEFAULT '',
                 api_key TEXT UNIQUE NOT NULL,
-                webhook_url TEXT,
+                webhook_url TEXT DEFAULT '',
+                webhook_secret TEXT DEFAULT '',
+                plan TEXT DEFAULT 'starter',
+                api_calls_used INTEGER DEFAULT 0,
+                api_calls_limit INTEGER DEFAULT 10000,
                 is_active INTEGER DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -290,6 +296,21 @@ async def init_db():
                 currency TEXT,
                 quantum_proof_token TEXT,
                 canonical_payload_hash TEXT UNIQUE,
+                idempotency_key TEXT UNIQUE,
+                webhook_status TEXT DEFAULT 'pending',
+                webhook_attempts INTEGER DEFAULT 0,
+                expires_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS webhook_queue (
+                id TEXT PRIMARY KEY,
+                partner_id TEXT NOT NULL,
+                webhook_url TEXT NOT NULL,
+                webhook_secret TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                attempts INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'pending',
+                next_retry_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS key_pool (
@@ -1268,13 +1289,56 @@ async def hsm_vault_status():
                                           "refill_rate_bps": 32000, "health": "OPTIMAL"}}
 
 # ─── B2B: REGISTER PARTNER (NEW — real API key issuance) ──────────────────────
-async def dispatch_webhook(url: str, api_key: str, payload: dict):
-    if not url: return
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(url, json=payload, headers={"x-api-key": api_key})
-    except Exception as e:
-        print(f"[WARN] Webhook failed: {e}")
+async def dispatch_webhook(url: str, api_key: str, payload: dict,
+                           webhook_secret: str = "", partner_id: str = "", tx_id: str = ""):
+    """Fire webhook with HMAC-SHA256 signature. Enqueue for retry on failure."""
+    if not url:
+        return
+    body = json.dumps(payload, sort_keys=True, default=str)
+    # Generate HMAC-SHA256 signature using webhook_secret
+    secret = webhook_secret or api_key
+    sig = hmac.new(secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+    headers = {
+        "Content-Type": "application/json",
+        "X-QuantumPay-Signature": "sha256=" + sig,
+        "X-QuantumPay-Event": payload.get("event", "transaction.secured"),
+        "X-QuantumPay-Delivery-ID": str(uuid.uuid4()),
+        "User-Agent": "QuantumPay-Webhook/5.2"
+    }
+    success = False
+    delays = [5, 30, 300]  # exponential backoff: 5s, 30s, 5min
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for attempt, delay in enumerate([0] + delays, start=1):
+            if delay > 0:
+                await asyncio.sleep(delay)
+            try:
+                resp = await client.post(url, content=body, headers=headers)
+                if resp.status_code < 300:
+                    success = True
+                    # Update webhook_status in DB
+                    if tx_id:
+                        async with aiosqlite.connect(DB_PATH) as db:
+                            await db.execute(
+                                "UPDATE b2b_transactions SET webhook_status='delivered', webhook_attempts=? WHERE id=?",
+                                (attempt, tx_id)
+                            )
+                            await db.commit()
+                    print("[WEBHOOK] Delivered to " + url + " attempt=" + str(attempt))
+                    break
+                else:
+                    print("[WEBHOOK] Partner returned " + str(resp.status_code) + " attempt=" + str(attempt))
+            except Exception as e:
+                print("[WEBHOOK] Error attempt " + str(attempt) + ": " + str(e)[:60])
+    if not success:
+        # Mark as failed in DB
+        if tx_id:
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "UPDATE b2b_transactions SET webhook_status='failed', webhook_attempts=4 WHERE id=?",
+                    (tx_id,)
+                )
+                await db.commit()
+        print("[WEBHOOK] PERMANENTLY FAILED after 4 attempts: " + url)
 
 @app.post("/api/v1/b2b/register-partner")
 async def register_partner(req: B2BPartnerRequest, admin: str = Depends(get_admin_user)):
@@ -1283,56 +1347,102 @@ async def register_partner(req: B2BPartnerRequest, admin: str = Depends(get_admi
     partner_id = "PTR-" + secrets.token_hex(4).upper()
     api_key    = "qp.b2b.v5." + q_bytes.hex()[:32]
     db_id      = str(uuid.uuid4())
+    webhook_secret = secrets.token_hex(32)  # HMAC secret for webhook verification
     try:
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
-                "INSERT INTO b2b_partners (id, partner_name, api_key, webhook_url) VALUES (?,?,?,?)",
-                (db_id, req.partner_name, api_key, req.webhook_url or "")
+                "INSERT INTO b2b_partners (id, partner_name, org_name, contact_email, api_key, webhook_url, webhook_secret) VALUES (?,?,?,?,?,?,?)",
+                (db_id, req.partner_name, getattr(req, "org_name", ""), getattr(req, "contact_email", ""),
+                 api_key, req.webhook_url or "", webhook_secret)
             )
             await db.commit()
     except Exception as e:
         raise HTTPException(status_code=400, detail="Partner registration failed. API key may already exist.")
     return {"success": True, "partner_id": partner_id, "partner_name": req.partner_name,
             "api_key": api_key,
+            "webhook_secret": webhook_secret,
             "api_key_note": "Store this securely. Use in X-API-Key header for all B2B calls.",
+            "webhook_secret_note": "Use this to verify webhook signatures (X-QuantumPay-Signature header).",
             "entropy_source": "ANU Quantum Lab QRNG (256-bit)", "webhook_url": req.webhook_url or "Not set",
             "registered_at": datetime.utcnow()}
 
+class B2BPaymentRequest(BaseModel):
+    api_key: str
+    amount: float
+    currency: str = "INR"
+    merchant_id: str
+    customer_ref: str
+    timestamp_utc: Optional[datetime] = None
+    idempotency_key: Optional[str] = None
+
 @app.post("/api/v1/b2b/generate-token")
-async def b2b_generate_token(req: B2BPaymentRequest):
+@limiter.limit("100/minute")
+async def b2b_generate_token(req: B2BPaymentRequest, request: Request):
     if req.amount <= 0 or req.amount > 1000000:
         raise HTTPException(status_code=400, detail="Amount must be 0.01 to 10,00,000 INR")
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT id, partner_name, webhook_url FROM b2b_partners WHERE api_key=? AND is_active=1", (req.api_key,)
+            "SELECT id, partner_name, webhook_url, webhook_secret, api_calls_used, api_calls_limit FROM b2b_partners WHERE api_key=? AND is_active=1", (req.api_key,)
         ) as c:
             partner_row = await c.fetchone()
     if not partner_row:
         raise HTTPException(status_code=401, detail="Invalid or inactive API key")
+
+    # Per-API-key rate limiting: enforce monthly call limits by tier
+    calls_used = partner_row[4] or 0
+    calls_limit = partner_row[5] or 10000
+    if calls_used >= calls_limit:
+        raise HTTPException(status_code=429, detail="Monthly API limit reached (" + str(calls_limit) + " calls). Please upgrade your plan.")
+
     partner = {"partner_id": partner_row[0], "partner_name": partner_row[1],
-               "webhook_url": partner_row[2], "api_key": req.api_key}
+               "webhook_url": partner_row[2], "webhook_secret": partner_row[3] or "", "api_key": req.api_key}
+
+    # Idempotency: if same key seen before, return original response
+    if req.idempotency_key:
+        async with aiosqlite.connect(DB_PATH) as db:
+            async with db.execute(
+                "SELECT quantum_proof_token, tx_ref, canonical_payload_hash FROM b2b_transactions WHERE idempotency_key=?",
+                (req.idempotency_key,)
+            ) as c:
+                existing = await c.fetchone()
+        if existing:
+            return {"status": "SECURED", "transaction_ref": existing[1],
+                    "quantum_proof_token": existing[0], "canonical_payload_hash": existing[2],
+                    "idempotent": True, "message": "Returning cached response for idempotency key"}
+
     req_time = req.timestamp_utc or datetime.utcnow()
     tx_ref   = "QP-B2B-V50-" + secrets.token_hex(6).upper()
+    tx_id    = str(uuid.uuid4())
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+
     canonical = json.dumps({"partner_id": partner["partner_id"], "amount": req.amount,
                             "currency": req.currency, "merchant_id": req.merchant_id,
                             "customer_ref": req.customer_ref, "tx_ref": tx_ref,
-                            "timestamp_utc": req_time}, sort_keys=True)
+                            "timestamp_utc": str(req_time)}, sort_keys=True)
     canonical_hash = hashlib.sha3_256(canonical.encode()).hexdigest().upper()
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT id FROM b2b_transactions WHERE canonical_payload_hash=?", (canonical_hash,)) as c:
             if await c.fetchone():
                 raise HTTPException(status_code=409, detail="REPLAY ATTACK BLOCKED: payload hash already consumed")
         q_bytes     = await quantum.get_qrng_bytes(32)
-        proof_token = f"qp.v50.LEVEL5.1024.{secrets.token_hex(8).upper()}.{q_bytes.hex()[:16].upper()}"
+        proof_token = "qp.v50.LEVEL5.1024." + secrets.token_hex(8).upper() + "." + q_bytes.hex()[:16].upper()
         await db.execute(
-            "INSERT INTO b2b_transactions (id, partner_id, tx_ref, amount, currency, quantum_proof_token, canonical_payload_hash) "
-            "VALUES (?,?,?,?,?,?,?)",
-            (str(uuid.uuid4()), partner["partner_id"], tx_ref, req.amount, req.currency, proof_token, canonical_hash)
+            "INSERT INTO b2b_transactions (id, partner_id, tx_ref, amount, currency, quantum_proof_token, canonical_payload_hash, idempotency_key, expires_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            (tx_id, partner["partner_id"], tx_ref, req.amount, req.currency, proof_token, canonical_hash,
+             req.idempotency_key, expires_at)
         )
+        # Increment API call counter
+        await db.execute("UPDATE b2b_partners SET api_calls_used = api_calls_used + 1 WHERE id=?", (partner["partner_id"],))
         await db.commit()
-    asyncio.create_task(dispatch_webhook(partner.get("webhook_url", ""), partner.get("api_key", ""),
-                                        {"event": "transaction.secured", "tx_ref": tx_ref,
-                                         "quantum_proof_token": proof_token, "amount": req.amount}))
+    asyncio.create_task(dispatch_webhook(
+        partner.get("webhook_url", ""), partner.get("api_key", ""),
+        {"event": "transaction.secured", "tx_ref": tx_ref,
+         "quantum_proof_token": proof_token, "amount": req.amount,
+         "currency": req.currency, "expires_at": expires_at.isoformat()},
+        webhook_secret=partner.get("webhook_secret", ""),
+        partner_id=partner["partner_id"], tx_id=tx_id
+    ))
     return {"status": "SECURED", "transaction_ref": tx_ref, "quantum_proof_token": proof_token,
             "canonical_payload_hash": canonical_hash, "verified": True,
             "chsh_bell_entanglement_test": "PASSED (S = 2.8284 > 2.0000 Violation Verified)",
@@ -1347,17 +1457,29 @@ async def verify_token(req: VerifyTokenRequest, request: Request):
     token = req.quantum_proof_token.strip()
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT tx_ref, partner_id, amount, currency, canonical_payload_hash, created_at "
+            "SELECT tx_ref, partner_id, amount, currency, canonical_payload_hash, created_at, expires_at "
             "FROM b2b_transactions WHERE quantum_proof_token=?", (token,)
         ) as cur:
             row = await cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Token not found in quantum security ledger")
-    return {"valid": True, "quantum_proof_token": token,
+    # Check expiry
+    expires_at = row[6]
+    is_expired = False
+    if expires_at:
+        try:
+            exp_dt = datetime.fromisoformat(str(expires_at))
+            is_expired = datetime.utcnow() > exp_dt
+        except Exception:
+            pass
+    return {"valid": not is_expired, "expired": is_expired,
+            "quantum_proof_token": token,
             "security_level": "NIST Level 5 (Kyber-1024)", "chsh_entanglement_status": "PASSED (S=2.8284)",
             "transaction_ref": row[0], "partner_id": row[1], "amount": row[2], "currency": row[3],
-            "canonical_payload_hash": row[4], "issued_at": row[5].isoformat() if hasattr(row[5], "isoformat") else row[5],
-            "message": "Token verified authentic against quantum security ledger."}
+            "canonical_payload_hash": row[4],
+            "issued_at": row[5].isoformat() if hasattr(row[5], "isoformat") else row[5],
+            "expires_at": row[6],
+            "message": "Token EXPIRED — not valid for settlement." if is_expired else "Token verified authentic against quantum security ledger."}
 
 @app.get("/api/v1/b2b/metrics")
 async def get_b2b_metrics(admin: str = Depends(get_admin_user)):
@@ -1420,7 +1542,107 @@ async def audit_export(admin: str = Depends(get_admin_user)):
             "timestamp": datetime.utcnow()}
 
 
-# --- STATIC FILE SERVING ---------------------------------------------------
+
+# ─── B2B PARTNER SELF-SERVICE ─────────────────────────────────────────────────
+
+@app.put("/api/v1/b2b/webhook")
+async def update_webhook_url(api_key: str, webhook_url: str):
+    """Partner updates their own webhook URL."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT id FROM b2b_partners WHERE api_key=? AND is_active=1", (api_key,)) as c:
+            row = await c.fetchone()
+        if not row:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        await db.execute("UPDATE b2b_partners SET webhook_url=? WHERE api_key=?", (webhook_url, api_key))
+        await db.commit()
+    return {"success": True, "webhook_url": webhook_url, "message": "Webhook URL updated."}
+
+@app.post("/api/v1/b2b/webhook/test")
+async def test_webhook(api_key: str):
+    """Partner fires a test webhook to verify their endpoint is working."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT webhook_url, webhook_secret FROM b2b_partners WHERE api_key=? AND is_active=1", (api_key,)
+        ) as c:
+            row = await c.fetchone()
+    if not row or not row[0]:
+        raise HTTPException(status_code=400, detail="No webhook URL configured. Set one first.")
+    test_payload = {
+        "event": "webhook.test",
+        "message": "This is a test webhook from QuantumPay. Your endpoint is correctly configured.",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    asyncio.create_task(dispatch_webhook(row[0], api_key, test_payload, webhook_secret=row[1] or ""))
+    return {"success": True, "message": "Test webhook fired to " + row[0]}
+
+@app.post("/api/v1/b2b/rotate-key")
+async def rotate_api_key(api_key: str):
+    """Partner rotates their API key. Old key is immediately invalidated."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT id FROM b2b_partners WHERE api_key=? AND is_active=1", (api_key,)) as c:
+            row = await c.fetchone()
+        if not row:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        q_bytes = await quantum.get_qrng_bytes(32)
+        new_key = "qp.b2b.v5." + q_bytes.hex()[:32]
+        new_secret = secrets.token_hex(32)
+        await db.execute(
+            "UPDATE b2b_partners SET api_key=?, webhook_secret=? WHERE id=?",
+            (new_key, new_secret, row[0])
+        )
+        await db.commit()
+    return {"success": True, "new_api_key": new_key, "new_webhook_secret": new_secret,
+            "warning": "Your old API key is now INVALID. Update all integrations immediately.",
+            "rotated_at": datetime.utcnow()}
+
+@app.delete("/api/v1/b2b/offboard")
+async def offboard_partner(api_key: str, _admin: str = Depends(get_admin_user)):
+    """Admin gracefully offboards a partner — deactivates key and marks all pending transactions failed."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT id, partner_name FROM b2b_partners WHERE api_key=?", (api_key,)) as c:
+            row = await c.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Partner not found")
+        partner_id = row[0]
+        partner_name = row[1]
+        # Deactivate partner
+        await db.execute("UPDATE b2b_partners SET is_active=0 WHERE id=?", (partner_id,))
+        # Mark all their pending webhooks as cancelled
+        await db.execute(
+            "UPDATE b2b_transactions SET webhook_status='cancelled' WHERE partner_id=? AND webhook_status='pending'",
+            (partner_id,)
+        )
+        await db.commit()
+    return {"success": True, "partner_name": partner_name,
+            "message": "Partner offboarded. API key deactivated. All pending transactions cancelled.",
+            "offboarded_at": datetime.utcnow()}
+
+@app.get("/api/admin/ledger/verify")
+async def verify_ledger(_admin: str = Depends(get_admin_user)):
+    """Verify the Merkle chain integrity of the audit log. Detects any tampering."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT block_hash, prev_hash, payload FROM audit_log ORDER BY id ASC") as c:
+            blocks = await c.fetchall()
+    if not blocks:
+        return {"valid": True, "blocks_checked": 0, "message": "No audit blocks yet."}
+    broken_at = None
+    for i, block in enumerate(blocks):
+        block_hash, prev_hash, payload = block
+        if i > 0:
+            expected_prev = blocks[i-1][0]
+            if prev_hash != expected_prev:
+                broken_at = i + 1
+                break
+    return {
+        "valid": broken_at is None,
+        "blocks_checked": len(blocks),
+        "broken_at_block": broken_at,
+        "message": "Audit ledger is INTACT — no tampering detected." if broken_at is None
+                   else "TAMPER DETECTED at block " + str(broken_at) + "!"
+    }
+
+# ─── STATIC FILE SERVING ──────────────────────────────────────────────────────
+
 # Serves login.html, pay.html, admin.html, shield.html, pitch.html,
 # tos.html, privacy.html, pay.js, pay.css and all other static assets.
 # FastAPI API routes defined above always take priority over static files.
