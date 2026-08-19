@@ -64,36 +64,50 @@
 
     @media(max-width:900px){.grid-3,.grid-2,.cert-grid{grid-template-columns:1fr}}
   </style>
-<style>
-.qp-nav{display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:64px;background:rgba(10,10,15,0.97);border-bottom:1px solid #1a1a2e;position:sticky;top:0;z-index:1000;backdrop-filter:blur(10px);}
-.qp-logo{color:#00d4ff;font-size:1.2rem;font-weight:700;text-decoration:none;}
-.qp-nav-links{display:flex;align-items:center;gap:1.5rem;}
-.qp-nav-link{color:#a0a0b0;text-decoration:none;font-size:0.875rem;}
-.qp-nav-link:hover{color:#00d4ff;}
-.qp-btn-nav{background:linear-gradient(135deg,#00d4ff,#7b2fff);color:#fff;padding:7px 18px;border-radius:8px;text-decoration:none;font-size:0.85rem;font-weight:600;}
-.qp-dropdown{position:relative;}
-.qp-dropdown-menu{display:none;position:absolute;top:100%;left:0;background:#0f1117;border:1px solid #1a1a2e;border-radius:8px;padding:8px 0;min-width:150px;margin-top:8px;}
-.qp-dropdown:hover .qp-dropdown-menu{display:block;}
-.qp-dropdown-menu a{display:block;padding:8px 16px;color:#a0a0b0;text-decoration:none;font-size:0.8rem;}
-.qp-dropdown-menu a:hover{color:#00d4ff;}
-</style>
+
 </head>
 <body>
+<style>
+/* QuantumPay Unified Navigation */
+.qp-nav{display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:64px;
+  background:rgba(10,10,15,0.97);border-bottom:1px solid #1a1a2e;position:sticky;top:0;z-index:9999;backdrop-filter:blur(12px);}
+.qp-logo{color:#00d4ff;font-size:1.25rem;font-weight:800;text-decoration:none;letter-spacing:-0.5px;}
+.qp-logo:hover{opacity:0.85;}
+.qp-nav-links{display:flex;align-items:center;gap:1.75rem;}
+.qp-nav-link{color:#8080a0;text-decoration:none;font-size:0.875rem;transition:color 0.2s;cursor:pointer;}
+.qp-nav-link:hover,.qp-nav-link.active{color:#00d4ff;}
+.qp-nav-sep{width:1px;height:20px;background:#1a1a2e;}
+.qp-btn-demo{background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;
+  padding:7px 16px;border-radius:8px;text-decoration:none;font-size:0.85rem;font-weight:600;transition:opacity 0.2s;}
+.qp-btn-demo:hover{opacity:0.8;}
+.qp-btn-partner{background:linear-gradient(135deg,#00d4ff,#7b2fff);color:#fff;
+  padding:8px 18px;border-radius:8px;text-decoration:none;font-size:0.875rem;font-weight:700;transition:opacity 0.2s;}
+.qp-btn-partner:hover{opacity:0.85;}
+.qp-hamburger{display:none;cursor:pointer;font-size:1.4rem;color:#8080a0;background:none;border:none;}
+@media(max-width:768px){
+  .qp-nav-links{display:none;position:absolute;top:64px;left:0;right:0;background:#0a0a0f;
+    flex-direction:column;align-items:flex-start;padding:1rem 2rem;gap:1rem;
+    border-bottom:1px solid #1a1a2e;z-index:9998;}
+  .qp-nav-links.open{display:flex;}
+  .qp-nav-sep{display:none;}
+  .qp-hamburger{display:block;}
+}
+</style>
 <nav class="qp-nav">
   <a href="/" class="qp-logo">⚛ QuantumPay</a>
-  <div class="qp-nav-links">
-    <div class="qp-dropdown">
-      <span class="qp-nav-link" style="cursor:pointer">Company ▾</span>
-      <div class="qp-dropdown-menu">
-        <a href="/compliance.html">Compliance</a>
-        <a href="/pitch.html">Pitch Deck</a>
-        <a href="/shield.html">Security</a>
-      </div>
-    </div>
-    <a href="/login.html" class="qp-nav-link">Live Demo</a>
-    <a href="/partner_login.html" class="qp-btn-nav">Partner Access</a>
+  <div class="qp-nav-links" id="qp-links">
+    <a href="/" class="qp-nav-link">Home</a>
+    <a href="/pricing.html" class="qp-nav-link">Pricing</a>
+    <a href="/compliance.html" class="qp-nav-link active">Compliance</a>
+    <a href="/pitch.html" class="qp-nav-link">Pitch Deck</a>
+    <a href="/shield.html" class="qp-nav-link">Security</a>
+    <div class="qp-nav-sep"></div>
+    <a href="/login.html" class="qp-btn-demo">🎬 Live Demo</a>
+    <a href="/partner_login.html" class="qp-btn-partner">Partner Access →</a>
   </div>
+  <button class="qp-hamburger" onclick="document.getElementById('qp-links').classList.toggle('open')">☰</button>
 </nav>
+
   <canvas id="bg"></canvas>
 
   <nav>
