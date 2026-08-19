@@ -632,5 +632,176 @@ window.addEventListener('DOMContentLoaded',()=>{
   setInterval(loadStats,30000);
 });
 </script>
+
+<!-- PENDING PARTNERS SECTION — injected by build script -->
+<div id="pending-partners-section" style="background:#0f1117;border:1px solid #1a1a2e;border-radius:16px;padding:1.75rem;margin:1.5rem auto;max-width:1200px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+    <div>
+      <div style="font-size:0.8rem;text-transform:uppercase;letter-spacing:1.5px;color:#4040a0;font-weight:700;">🔑 Partner API Key Management</div>
+      <div style="font-size:0.75rem;color:#3030a0;margin-top:4px;">Review applications and issue QRNG-generated API keys</div>
+    </div>
+    <button onclick="loadPendingPartners()" style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:0.8rem;">↻ Refresh</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;" id="partner-columns">
+    <!-- Pending -->
+    <div>
+      <div style="font-size:0.75rem;color:#ffc800;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:1rem;">⏳ Pending Approval (<span id="pending-count">0</span>)</div>
+      <div id="pending-list"><div style="color:#2020a0;font-size:0.8rem;">Loading...</div></div>
+    </div>
+    <!-- Approved -->
+    <div>
+      <div style="font-size:0.75rem;color:#00d464;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:1rem;">✅ Active Partners (<span id="approved-count">0</span>)</div>
+      <div id="approved-list"><div style="color:#2020a0;font-size:0.8rem;">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- Issue Key Modal -->
+  <div id="issue-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:none;align-items:center;justify-content:center;">
+    <div style="background:#0f1117;border:1px solid #1a1a2e;border-radius:16px;padding:2rem;width:100%;max-width:480px;margin:2rem;">
+      <div style="font-size:1rem;font-weight:700;color:#fff;margin-bottom:1.5rem;">Issue API Key</div>
+      <input id="ik-email" type="hidden">
+      <div style="margin-bottom:1rem;">
+        <label style="font-size:0.75rem;color:#4040a0;display:block;margin-bottom:4px;">Partner Name</label>
+        <input id="ik-name" style="width:100%;background:#0a0a0f;border:1px solid #1a1a2e;border-radius:8px;padding:10px;color:#e0e0e0;font-size:0.875rem;" placeholder="Ravi Kumar">
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label style="font-size:0.75rem;color:#4040a0;display:block;margin-bottom:4px;">Organisation</label>
+        <input id="ik-org" style="width:100%;background:#0a0a0f;border:1px solid #1a1a2e;border-radius:8px;padding:10px;color:#e0e0e0;font-size:0.875rem;" placeholder="HDFC Bank Ltd.">
+      </div>
+      <div style="margin-bottom:1.5rem;">
+        <label style="font-size:0.75rem;color:#4040a0;display:block;margin-bottom:8px;">Plan</label>
+        <div style="display:flex;gap:0.5rem;">
+          <label style="flex:1;background:#0a0a0f;border:1px solid #1a1a2e;border-radius:8px;padding:10px;text-align:center;cursor:pointer;">
+            <input type="radio" name="ik-plan" value="starter" checked style="margin-right:4px;">
+            <span style="font-size:0.8rem;color:#e0e0e0;">Starter</span><br>
+            <span style="font-size:0.7rem;color:#4040a0;">10k calls/mo</span>
+          </label>
+          <label style="flex:1;background:#0a0a0f;border:1px solid #1a1a2e;border-radius:8px;padding:10px;text-align:center;cursor:pointer;">
+            <input type="radio" name="ik-plan" value="professional" style="margin-right:4px;">
+            <span style="font-size:0.8rem;color:#e0e0e0;">Professional</span><br>
+            <span style="font-size:0.7rem;color:#4040a0;">500k calls/mo</span>
+          </label>
+          <label style="flex:1;background:#0a0a0f;border:1px solid #1a1a2e;border-radius:8px;padding:10px;text-align:center;cursor:pointer;">
+            <input type="radio" name="ik-plan" value="enterprise" style="margin-right:4px;">
+            <span style="font-size:0.8rem;color:#e0e0e0;">Enterprise</span><br>
+            <span style="font-size:0.7rem;color:#4040a0;">Unlimited</span>
+          </label>
+        </div>
+      </div>
+      <div style="display:flex;gap:1rem;">
+        <button onclick="document.getElementById('issue-modal').style.display='none'" style="flex:1;background:#0a0a0f;border:1px solid #1a1a2e;border-radius:8px;padding:12px;color:#a0a0b0;cursor:pointer;">Cancel</button>
+        <button onclick="confirmIssueKey()" id="issue-btn" style="flex:2;background:linear-gradient(135deg,#00d4ff,#7b2fff);border:none;border-radius:8px;padding:12px;color:#fff;font-weight:700;cursor:pointer;">Issue QRNG API Key →</button>
+      </div>
+      <div id="issue-result" style="margin-top:1rem;font-size:0.8rem;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const adminToken = sessionStorage.getItem('qp_token') || localStorage.getItem('token') || '';
+
+async function loadPendingPartners() {
+  try {
+    const r = await fetch('/api/admin/pending-partners', {
+      headers: {'Authorization': 'Bearer ' + adminToken}
+    });
+    if (!r.ok) { console.warn('Not admin or not logged in'); return; }
+    const d = await r.json();
+
+    document.getElementById('pending-count').textContent = d.total_pending || 0;
+    document.getElementById('approved-count').textContent = d.total_approved || 0;
+
+    // Render pending
+    const pList = document.getElementById('pending-list');
+    if (!d.pending || !d.pending.length) {
+      pList.innerHTML = '<div style="color:#2020a0;font-size:0.8rem;">No pending applications.</div>';
+    } else {
+      pList.innerHTML = d.pending.map(p => `
+        <div style="background:#0a0a0f;border:1px solid #1a2a1a;border-radius:10px;padding:1rem;margin-bottom:0.75rem;">
+          <div style="font-size:0.875rem;font-weight:600;color:#e0e0e0;">${p.name}</div>
+          <div style="font-size:0.75rem;color:#4040a0;margin:2px 0;">${p.email}</div>
+          <div style="font-size:0.7rem;color:#2020a0;">Applied: ${new Date(p.registered_at).toLocaleDateString()}</div>
+          <button onclick="openIssueModal('${p.email}','${p.name}','')"
+            style="margin-top:0.75rem;background:linear-gradient(135deg,#00d4ff,#7b2fff);border:none;border-radius:6px;padding:7px 14px;color:#fff;font-size:0.8rem;font-weight:600;cursor:pointer;width:100%;">
+            Issue API Key →
+          </button>
+        </div>`).join('');
+    }
+
+    // Render approved
+    const aList = document.getElementById('approved-list');
+    if (!d.approved || !d.approved.length) {
+      aList.innerHTML = '<div style="color:#2020a0;font-size:0.8rem;">No approved partners yet.</div>';
+    } else {
+      aList.innerHTML = d.approved.map(p => `
+        <div style="background:#0a0a0f;border:1px solid #1a3a1a;border-radius:10px;padding:1rem;margin-bottom:0.75rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-size:0.875rem;font-weight:600;color:#e0e0e0;">${p.name}</div>
+              <div style="font-size:0.75rem;color:#4040a0;">${p.email}</div>
+            </div>
+            <span style="background:rgba(0,212,100,0.1);color:#00d464;border-radius:20px;padding:3px 10px;font-size:0.7rem;font-weight:700;">Active</span>
+          </div>
+        </div>`).join('');
+    }
+  } catch(e) {
+    console.error('Failed to load partners:', e);
+  }
+}
+
+function openIssueModal(email, name, org) {
+  document.getElementById('ik-email').value = email;
+  document.getElementById('ik-name').value = name;
+  document.getElementById('ik-org').value = org || '';
+  document.getElementById('issue-result').textContent = '';
+  document.getElementById('issue-modal').style.display = 'flex';
+}
+
+async function confirmIssueKey() {
+  const email = document.getElementById('ik-email').value;
+  const name = document.getElementById('ik-name').value;
+  const org = document.getElementById('ik-org').value;
+  const plan = document.querySelector('input[name="ik-plan"]:checked').value;
+  const btn = document.getElementById('issue-btn');
+  const res = document.getElementById('issue-result');
+
+  btn.disabled = true;
+  btn.textContent = 'Generating QRNG key...';
+
+  try {
+    const r = await fetch('/api/admin/partners/issue-key', {
+      method: 'POST',
+      headers: {'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json'},
+      body: JSON.stringify({email, partner_name: name, org_name: org, plan})
+    });
+    const d = await r.json();
+    if (r.ok) {
+      res.style.color = '#00d464';
+      res.innerHTML = '✅ API Key issued!<br><code style="font-size:0.75rem;word-break:break-all;color:#00d4ff;">' + d.api_key + '</code><br><span style="font-size:0.7rem;color:#3050a0;">Plan: ' + d.plan + ' · ' + (d.api_calls_limit >= 99999999 ? 'Unlimited' : d.api_calls_limit.toLocaleString()) + ' calls/mo</span>';
+      btn.textContent = 'Issued!';
+      setTimeout(() => {
+        document.getElementById('issue-modal').style.display = 'none';
+        loadPendingPartners();
+      }, 3000);
+    } else {
+      res.style.color = '#ff5050';
+      res.textContent = '❌ ' + (d.detail || 'Failed to issue key.');
+      btn.disabled = false;
+      btn.textContent = 'Issue QRNG API Key →';
+    }
+  } catch(e) {
+    res.style.color = '#ff5050';
+    res.textContent = '❌ Network error.';
+    btn.disabled = false;
+    btn.textContent = 'Issue QRNG API Key →';
+  }
+}
+
+// Auto-load on page load
+document.addEventListener('DOMContentLoaded', loadPendingPartners);
+setTimeout(loadPendingPartners, 500);
+</script>
+
 </body>
 </html>
