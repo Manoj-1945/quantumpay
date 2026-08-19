@@ -1641,7 +1641,109 @@ async def verify_ledger(_admin: str = Depends(get_admin_user)):
                    else "TAMPER DETECTED at block " + str(broken_at) + "!"
     }
 
+
+# ─── PARTNER SELF-SERVE: GET OWN API KEY ──────────────────────────────────────
+@app.get("/api/partner/my-key")
+async def get_my_api_key(current_user: str = Depends(get_current_user)):
+    """Logged-in partner retrieves their issued API key (if approved)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Match by email — partners register with email as upi_id
+        async with db.execute(
+            "SELECT api_key, webhook_secret, webhook_url, plan, api_calls_used, api_calls_limit, is_active, partner_name, org_name, created_at "
+            "FROM b2b_partners WHERE contact_email=? AND is_active=1",
+            (current_user,)
+        ) as c:
+            row = await c.fetchone()
+    if not row:
+        return {"has_key": False, "status": "pending",
+                "message": "Your application is under review. Admin will issue your API key shortly."}
+    return {
+        "has_key": True,
+        "status": "active",
+        "api_key": row[0],
+        "webhook_secret": row[1],
+        "webhook_url": row[2] or "",
+        "plan": row[3] or "starter",
+        "api_calls_used": row[4] or 0,
+        "api_calls_limit": row[5] or 10000,
+        "partner_name": row[7] or "",
+        "org_name": row[8] or "",
+        "registered_at": str(row[9])
+    }
+
+# ─── ADMIN: LIST PENDING PARTNERS (registered but no API key yet) ──────────────
+@app.get("/api/admin/pending-partners")
+async def get_pending_partners(_admin: str = Depends(get_admin_user)):
+    """Admin sees all users who registered via partner portal but haven't been issued an API key."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Get all non-admin users
+        async with db.execute(
+            "SELECT id, name, upi_id, email, created_at FROM users WHERE is_admin=0 ORDER BY created_at DESC"
+        ) as c:
+            all_users = await c.fetchall()
+        # Get all emails that already have an API key
+        async with db.execute("SELECT contact_email FROM b2b_partners") as c:
+            approved_emails = {row[0] for row in await c.fetchall()}
+
+    pending = []
+    approved = []
+    for u in all_users:
+        user_dict = {"id": u[0], "name": u[1], "email": u[2], "upi_id": u[3], "registered_at": str(u[4])}
+        if u[2] in approved_emails or u[3] in approved_emails:
+            approved.append(user_dict)
+        else:
+            pending.append(user_dict)
+
+    return {"pending": pending, "approved": approved,
+            "total_pending": len(pending), "total_approved": len(approved)}
+
+# ─── ADMIN: ISSUE API KEY TO A PARTNER ────────────────────────────────────────
+class IssueKeyRequest(BaseModel):
+    email: str
+    partner_name: str
+    org_name: str = ""
+    plan: str = "starter"
+    webhook_url: str = ""
+
+@app.post("/api/admin/partners/issue-key")
+async def issue_partner_key(req: IssueKeyRequest, _admin: str = Depends(get_admin_user)):
+    """Admin issues a QRNG-generated API key to an approved partner."""
+    # Generate QRNG API key
+    q_bytes = await quantum.get_qrng_bytes(32)
+    api_key = "qp.b2b.v5." + q_bytes.hex()[:32]
+    webhook_secret = secrets.token_hex(32)
+    partner_id = str(uuid.uuid4())
+
+    # Set call limits by plan
+    plan_limits = {"starter": 10000, "professional": 500000, "enterprise": 99999999}
+    call_limit = plan_limits.get(req.plan.lower(), 10000)
+
+    try:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                "INSERT INTO b2b_partners (id, partner_name, org_name, contact_email, api_key, webhook_url, webhook_secret, plan, api_calls_limit) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (partner_id, req.partner_name, req.org_name, req.email,
+                 api_key, req.webhook_url, webhook_secret, req.plan, call_limit)
+            )
+            await db.commit()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Key issuance failed. Partner may already have a key.")
+
+    return {
+        "success": True,
+        "partner_name": req.partner_name,
+        "email": req.email,
+        "api_key": api_key,
+        "webhook_secret": webhook_secret,
+        "plan": req.plan,
+        "api_calls_limit": call_limit,
+        "entropy_source": "ANU Quantum Lab QRNG (256-bit vacuum fluctuations)",
+        "issued_at": datetime.utcnow().isoformat()
+    }
+
 # ─── STATIC FILE SERVING ──────────────────────────────────────────────────────
+
 
 # Serves login.html, pay.html, admin.html, shield.html, pitch.html,
 # tos.html, privacy.html, pay.js, pay.css and all other static assets.
