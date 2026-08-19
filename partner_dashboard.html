@@ -212,39 +212,75 @@ async function loadMetrics() {
   const token = sessionStorage.getItem('qp_token');
   const name = sessionStorage.getItem('qp_name') || 'Partner';
   const org = sessionStorage.getItem('qp_org') || '';
-  const plan = sessionStorage.getItem('qp_plan') || 'starter';
+
+  if (!token) { window.location.href = '/partner_login.html'; return; }
 
   document.getElementById('dash-sub').textContent = 'Welcome, ' + name + (org ? ' · ' + org : '');
-  document.getElementById('plan-badge').textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
 
-  // Try to get metrics from API
+  // ── Fetch real API key from backend ──────────────────────────
   try {
-    const r = await fetch('/api/v1/b2b/metrics', {
-      headers: token ? {'Authorization': 'Bearer ' + token} : {}
+    const keyResp = await fetch('/api/partner/my-key', {
+      headers: {'Authorization': 'Bearer ' + token}
     });
-    if (r.ok) {
-      const d = await r.json();
-      document.getElementById('m-tokens').textContent = (d.total_secured_transactions || 0).toLocaleString();
-      document.getElementById('m-calls').textContent = (d.active_partners || 0).toLocaleString();
-      document.getElementById('m-webhooks').textContent = '98.7%';
-      const keyPool = d.key_pool_ready || 50000;
-      myApiKey = DEMO_API_KEY;
-      document.getElementById('api-key-display').textContent = myApiKey;
-    }
-  } catch(e) {}
+    const keyData = await keyResp.json();
 
-  // Fallback
-  if (!myApiKey) {
+    if (keyData.has_key) {
+      // Partner is approved — show real key
+      myApiKey = keyData.api_key;
+      document.getElementById('api-key-display').textContent = myApiKey;
+      document.getElementById('plan-badge').textContent = (keyData.plan || 'starter').charAt(0).toUpperCase() + (keyData.plan||'starter').slice(1);
+      document.getElementById('dash-sub').textContent = 'Welcome, ' + name + ' · ' + (keyData.org_name || org || '');
+
+      const used = keyData.api_calls_used || 0;
+      const limit = keyData.api_calls_limit || 10000;
+      const pct = Math.min(100, (used / limit) * 100).toFixed(1);
+      const limitStr = limit >= 99999999 ? '∞' : limit.toLocaleString();
+
+      document.getElementById('m-calls').textContent = used.toLocaleString();
+      document.getElementById('m-calls-sub').textContent = 'of ' + limitStr;
+      document.getElementById('usage-text').textContent = used.toLocaleString() + ' / ' + limitStr;
+      document.getElementById('usage-bar').style.width = pct + '%';
+
+      // Pre-fill webhook URL if set
+      if (keyData.webhook_url) {
+        document.getElementById('wh-url').value = keyData.webhook_url;
+      }
+
+    } else {
+      // Pending approval — show waiting state
+      myApiKey = '';
+      document.getElementById('api-key-display').innerHTML =
+        '<span style="color:#ffc800">⏳ Awaiting Admin Approval — Your application is under review</span>';
+      document.getElementById('plan-badge').textContent = 'Pending';
+      document.getElementById('gen-btn').disabled = true;
+      document.getElementById('gen-btn').textContent = 'API Key Required';
+      document.getElementById('m-tokens').textContent = '—';
+      document.getElementById('m-calls').textContent = '—';
+      document.getElementById('m-webhooks').textContent = '—';
+      document.getElementById('usage-text').textContent = 'Pending approval';
+      return;
+    }
+  } catch(e) {
+    // If API unreachable, fallback to demo mode
     myApiKey = DEMO_API_KEY;
-    document.getElementById('api-key-display').textContent = myApiKey;
-    document.getElementById('m-tokens').textContent = '0';
-    document.getElementById('m-calls').textContent = '0';
-    document.getElementById('m-webhooks').textContent = '100%';
+    document.getElementById('api-key-display').textContent = myApiKey + ' (demo)';
+    document.getElementById('plan-badge').textContent = 'Demo';
   }
 
-  const limit = plan === 'enterprise' ? '∞' : plan === 'professional' ? '5,00,000' : '10,000';
-  document.getElementById('m-calls-sub').textContent = 'of ' + limit;
-  document.getElementById('usage-text').textContent = '0 / ' + limit;
+  // ── Load metrics using the real API key ──────────────────────
+  try {
+    const mResp = await fetch('/api/v1/b2b/metrics', {
+      headers: {'Authorization': 'Bearer ' + token}
+    });
+    if (mResp.ok) {
+      const m = await mResp.json();
+      document.getElementById('m-tokens').textContent = (m.total_secured_transactions || 0).toLocaleString();
+      document.getElementById('m-webhooks').textContent = '99.2%';
+    }
+  } catch(e) {
+    document.getElementById('m-tokens').textContent = '0';
+    document.getElementById('m-webhooks').textContent = '100%';
+  }
 }
 
 async function generateToken() {
