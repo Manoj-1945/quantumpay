@@ -611,6 +611,13 @@ async def root():
         <a href='/docs' style='color:#00F2FE'>→ View Swagger API Docs</a>
         </body></html>""")
 
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    # Return SVG favicon with quantum icon
+    svg_data = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#0a0a0f" stroke="#00d4ff" stroke-width="4"/><text x="50" y="62" font-size="40" text-anchor="middle" fill="#00d4ff" font-family="sans-serif">⚛</text></svg>'
+    return Response(content=svg_data, media_type="image/svg+xml")
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "5.0.0", "service": "QuantumPay API", "uptime": time.time()}
@@ -973,7 +980,22 @@ class ConnectionManager:
 ws_manager = ConnectionManager()
 
 @app.websocket("/ws/live")
-async def websocket_live(ws: WebSocket):
+async def websocket_live(ws: WebSocket, token: Optional[str] = None):
+    # Verify JWT authentication for live feed access
+    if not token:
+        token = ws.query_params.get("token")
+    if not token:
+        await ws.close(code=1008, reason="Authentication token required")
+        return
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if not payload.get("sub"):
+            await ws.close(code=1008, reason="Invalid token")
+            return
+    except Exception:
+        await ws.close(code=1008, reason="Token verification failed")
+        return
+
     await ws_manager.connect(ws)
     try:
         while True:
@@ -987,7 +1009,7 @@ async def websocket_live(ws: WebSocket):
                                 "key_pool_ready": max(pool_count, 50000),
                                 "b2b_transactions_total": max(b2b_tx, 1420),
                                 "chsh_s_value": 2.8284,
-                                "timestamp": datetime.utcnow()})
+                                "timestamp": datetime.utcnow().isoformat()})
             await asyncio.sleep(2)
     except WebSocketDisconnect:
         ws_manager.disconnect(ws)
@@ -1110,11 +1132,23 @@ async def admin_stats(admin: str = Depends(get_admin_user)):
             "daily_transactions": daily, "uptime": "99.97%"}
 
 @app.get("/api/admin/users")
-async def admin_users(admin: str = Depends(get_admin_user)):
+async def admin_users(limit: int = 50, offset: int = 0, admin: str = Depends(get_admin_user)):
+    limit = min(max(1, limit), 200)
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT id, name, upi_id, email, balance, created_at FROM users ORDER BY created_at DESC LIMIT 100") as c:
+        async with db.execute("SELECT COUNT(*) FROM users") as count_cur:
+            total = (await count_cur.fetchone())[0]
+        async with db.execute(
+            "SELECT id, name, upi_id, email, balance, created_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (limit, offset)
+        ) as c:
             rows = await c.fetchall()
-    return [{"id": r[0], "name": r[1], "upi_id": r[2], "email": r[3], "balance": r[4], "created_at": r[5].isoformat() if hasattr(r[5], "isoformat") else r[5]} for r in rows]
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "users": [{"id": r[0], "name": r[1], "upi_id": r[2], "email": r[3], "balance": r[4],
+                   "created_at": r[5].isoformat() if hasattr(r[5], "isoformat") else str(r[5])} for r in rows]
+    }
 
 @app.get("/api/admin/transactions")
 async def admin_transactions(limit: int = 50, admin: str = Depends(get_admin_user)):
