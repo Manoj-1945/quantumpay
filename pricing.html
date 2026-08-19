@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — QuantumPay B2B Infrastructure</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<style>
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0f; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+.qp-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; height: 64px; background: rgba(10,10,15,0.95); border-bottom: 1px solid #1a1a2e; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
+.qp-logo { color: #00d4ff; font-size: 1.3rem; font-weight: 700; text-decoration: none; letter-spacing: -0.5px; }
+.qp-nav-links { display: flex; align-items: center; gap: 2rem; }
+.qp-nav-link { color: #a0a0b0; text-decoration: none; font-size: 0.9rem; cursor: pointer; transition: color 0.2s; }
+.qp-nav-link:hover { color: #00d4ff; }
+.qp-btn-nav { background: linear-gradient(135deg, #00d4ff, #7b2fff); color: #fff; padding: 8px 20px; border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 600; transition: opacity 0.2s; }
+.qp-btn-nav:hover { opacity: 0.85; }
+.qp-dropdown { position: relative; }
+.qp-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: #0f1117; border: 1px solid #1a1a2e; border-radius: 8px; padding: 8px 0; min-width: 160px; margin-top: 8px; }
+.qp-dropdown:hover .qp-dropdown-menu { display: block; }
+.qp-dropdown-menu a { display: block; padding: 8px 16px; color: #a0a0b0; text-decoration: none; font-size: 0.875rem; transition: color 0.2s; }
+.qp-dropdown-menu a:hover { color: #00d4ff; }
+.qp-hamburger { display: none; cursor: pointer; font-size: 1.5rem; color: #a0a0b0; }
+@media (max-width: 768px) { .qp-nav-links { display: none; flex-direction: column; position: absolute; top: 64px; left: 0; right: 0; background: #0f1117; padding: 1rem; border-bottom: 1px solid #1a1a2e; } .qp-nav-links.open { display: flex; } .qp-hamburger { display: block; } }
+
+.pricing-hero { text-align: center; padding: 4rem 2rem 2rem; max-width: 900px; margin: 0 auto; }
+.badge-tag { display: inline-block; background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); color: #00d4ff; padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 1.25rem; }
+.pricing-hero h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; line-height: 1.2; margin-bottom: 1rem; background: linear-gradient(135deg, #fff 0%, #00d4ff 50%, #7b2fff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.pricing-hero p { color: #8080a0; font-size: 1.05rem; line-height: 1.6; max-width: 650px; margin: 0 auto 2rem; }
+
+.currency-toggle { display: inline-flex; align-items: center; background: #0f1117; border: 1px solid #1a1a2e; border-radius: 30px; padding: 4px; gap: 4px; margin-bottom: 3rem; }
+.cur-btn { background: transparent; border: none; color: #707090; padding: 6px 18px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.2s; }
+.cur-btn.active { background: linear-gradient(135deg, #00d4ff, #7b2fff); color: #fff; }
+
+.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.75rem; max-width: 1150px; margin: 0 auto 5rem; padding: 0 2rem; }
+@media (max-width: 950px) { .pricing-grid { grid-template-columns: 1fr; max-width: 480px; } }
+
+.price-card { background: #0f1117; border: 1px solid #1a1a2e; border-radius: 16px; padding: 2.5rem 2rem; display: flex; flex-direction: column; position: relative; transition: transform 0.2s, border-color 0.2s; }
+.price-card:hover { transform: translateY(-4px); }
+.price-card.popular { border-color: #7b2fff; background: radial-gradient(circle at top, rgba(123,47,255,0.08), #0f1117 70%); }
+.popular-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #00d4ff, #7b2fff); color: #fff; padding: 4px 14px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.plan-title { font-size: 1.3rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+.plan-desc { font-size: 0.85rem; color: #606080; margin-bottom: 1.5rem; min-height: 40px; }
+.plan-cost { margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid #1a1a2e; }
+.cost-main { font-size: 2.2rem; font-weight: 800; color: #00d4ff; }
+.cost-sub { font-size: 0.85rem; color: #8080a0; margin-top: 4px; }
+.per-txn { display: inline-block; background: rgba(0,212,255,0.1); color: #00d4ff; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; margin-top: 6px; }
+
+.features-list { list-style: none; margin-bottom: 2rem; flex: 1; }
+.features-list li { font-size: 0.85rem; color: #9090b0; padding: 6px 0; display: flex; align-items: flex-start; gap: 8px; }
+.features-list li::before { content: "✓"; color: #00d464; font-weight: 700; }
+
+.btn-plan { display: block; text-align: center; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-size: 0.9rem; font-weight: 700; transition: opacity 0.2s; }
+.btn-plan.primary { background: linear-gradient(135deg, #00d4ff, #7b2fff); color: #fff; }
+.btn-plan.secondary { background: rgba(255,255,255,0.05); color: #fff; border: 1px solid #2a2a3e; }
+.btn-plan:hover { opacity: 0.85; }
+
+.custom-tier { max-width: 1150px; margin: 0 auto 5rem; padding: 0 2rem; }
+.custom-box { background: #0f1117; border: 1px solid #1a1a2e; border-radius: 16px; padding: 2.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 2rem; }
+.custom-text h3 { font-size: 1.4rem; color: #fff; margin-bottom: 0.5rem; }
+.custom-text p { color: #707090; font-size: 0.9rem; max-width: 600px; line-height: 1.6; }
+
+.faq-section { max-width: 800px; margin: 0 auto 5rem; padding: 0 2rem; }
+.faq-section h2 { text-align: center; font-size: 1.8rem; color: #fff; margin-bottom: 2.5rem; }
+.faq-item { background: #0f1117; border: 1px solid #1a1a2e; border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+.faq-q { font-size: 1rem; font-weight: 600; color: #e0e0e0; margin-bottom: 0.5rem; }
+.faq-a { font-size: 0.875rem; color: #707090; line-height: 1.6; }
+</style>
+</head>
+<body>
+<nav class="qp-nav">
+  <a href="/" class="qp-logo">⚛ QuantumPay</a>
+  <div class="qp-nav-links">
+    <div class="qp-dropdown">
+      <span class="qp-nav-link">Company ▾</span>
+      <div class="qp-dropdown-menu">
+        <a href="/compliance.html">Compliance</a>
+        <a href="/pricing.html">Pricing</a>
+        <a href="/pitch.html">Pitch Deck</a>
+        <a href="/shield.html">Security</a>
+      </div>
+    </div>
+    <a href="/pricing.html" class="qp-nav-link" style="color:#00d4ff;">Pricing</a>
+    <a href="/login.html" class="qp-nav-link">Live Demo</a>
+    <a href="/partner_login.html" class="qp-btn-nav">Partner Access</a>
+  </div>
+  <div class="qp-hamburger" onclick="this.parentElement.querySelector('.qp-nav-links').classList.toggle('open')">☰</div>
+</nav>
+<div class="pricing-hero">
+  <div class="badge-tag">Hybrid B2B SaaS Infrastructure</div>
+  <h1>Transparent, Predictable API Pricing</h1>
+  <p>Pay a base monthly infrastructure fee plus low per-transaction volume pricing. Fully backed by Kyber-1024 post-quantum SLA.</p>
+  
+  <div class="currency-toggle">
+    <button class="cur-btn active" id="btn-inr" onclick="setCurrency('INR')">INR (₹)</button>
+    <button class="cur-btn" id="btn-usd" onclick="setCurrency('USD')">USD ($)</button>
+  </div>
+</div>
+
+<div class="pricing-grid">
+  <!-- Tier 1: Starter -->
+  <div class="price-card">
+    <div class="plan-title">Starter</div>
+    <div class="plan-desc">For fintech startups and sandboxes building their first PQC payment flow.</div>
+    <div class="plan-cost">
+      <div class="cost-main" id="p1-cost">₹9,999<span style="font-size:0.9rem;font-weight:400;color:#606080">/mo</span></div>
+      <div class="per-txn" id="p1-txn">+ ₹0.50 per transaction</div>
+      <div class="cost-sub">Up to 10,000 API calls / month</div>
+    </div>
+    <ul class="features-list">
+      <li>CRYSTALS-Kyber-1024 Level 5 Encryption</li>
+      <li>Dilithium-3 Digital Signatures</li>
+      <li>ANU Quantum Lab QRNG Entropy</li>
+      <li>HMAC Signed Webhook Delivery</li>
+      <li>24-Hour Token TTL & Idempotency</li>
+      <li>Standard REST API & Documentation</li>
+      <li>Community & Email Support</li>
+    </ul>
+    <a href="/partner_login.html" class="btn-plan secondary">Get Started →</a>
+  </div>
+
+  <!-- Tier 2: Professional -->
+  <div class="price-card popular">
+    <div class="popular-badge">Most Popular</div>
+    <div class="plan-title">Professional</div>
+    <div class="plan-desc">For mid-size payment gateways, neo-banks, and fast-growing merchant aggregators.</div>
+    <div class="plan-cost">
+      <div class="cost-main" id="p2-cost">₹49,999<span style="font-size:0.9rem;font-weight:400;color:#606080">/mo</span></div>
+      <div class="per-txn" id="p2-txn">+ ₹0.25 per transaction</div>
+      <div class="cost-sub">Up to 5,00,000 API calls / month</div>
+    </div>
+    <ul class="features-list">
+      <li>Everything in Starter</li>
+      <li>50,000 Pre-generated Key Pool Cache</li>
+      <li>Sub-150ms Guaranteed Token Latency</li>
+      <li>Exponential Backoff Webhook Retries (4x)</li>
+      <li>Live Partner Usage & Analytics Dashboard</li>
+      <li>ISO 20022 pacs.008 Compliance Engine</li>
+      <li>Priority 24/7 Slack & Email SLA</li>
+    </ul>
+    <a href="/partner_login.html" class="btn-plan primary">Apply for Access →</a>
+  </div>
+
+  <!-- Tier 3: Enterprise -->
+  <div class="price-card">
+    <div class="plan-title">Enterprise</div>
+    <div class="plan-desc">For scheduled commercial banks, NBFCs, and sovereign transaction switches.</div>
+    <div class="plan-cost">
+      <div class="cost-main" id="p3-cost">₹2,99,999<span style="font-size:0.9rem;font-weight:400;color:#606080">/mo</span></div>
+      <div class="per-txn" id="p3-txn">+ ₹0.10 per transaction</div>
+      <div class="cost-sub">Unlimited API calls / month</div>
+    </div>
+    <ul class="features-list">
+      <li>Everything in Professional</li>
+      <li>Dedicated Private Quantum HSM Partition</li>
+      <li>99.99% Uptime Financial Grade SLA</li>
+      <li>RBI Data Localization & Audit Export</li>
+      <li>Custom Webhook IP Whitelisting</li>
+      <li>Dedicated Technical Account Manager</li>
+      <li>Custom SLA & Compliance Guarantees</li>
+    </ul>
+    <a href="/partner_login.html" class="btn-plan secondary">Contact Enterprise Sales →</a>
+  </div>
+</div>
+
+<div class="custom-tier">
+  <div class="custom-box">
+    <div class="custom-text">
+      <h3>🏛️ Government & Central Bank Infrastructure</h3>
+      <p>Looking for sovereign-grade deployment on private infrastructure or national switch integration (NPCI / RBI)? We provide on-premise quantum appliances and white-label PQC modules.</p>
+    </div>
+    <a href="/compliance.html" class="btn-plan primary" style="white-space:nowrap;">View Compliance Specs →</a>
+  </div>
+</div>
+
+<div class="faq-section">
+  <h2>Frequently Asked Questions</h2>
+  <div class="faq-item">
+    <div class="faq-q">How does the hybrid pricing model work?</div>
+    <div class="faq-a">You pay a fixed monthly base fee for access to the quantum key pool and cryptographic engine, plus a small per-transaction fee based on your volume. If you exceed plan limits, overage is billed at the plan's per-transaction rate.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">What happens when a quantum token is generated?</div>
+    <div class="faq-a">Your server sends transaction parameters to our API. We derive true quantum entropy, encrypt via Kyber-1024 (NIST FIPS 203 Level 5), sign via Dilithium-3, write to the immutable Merkle ledger, and dispatch a signed HMAC webhook to your endpoint in under 200ms.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Are there setup fees or long-term contracts?</div>
+    <div class="faq-a">No setup fees for Starter or Professional tiers. Subscriptions are billed month-to-month with no lock-in. Enterprise contracts offer annual discounts with custom SLAs.</div>
+  </div>
+</div>
+
+<script>
+let currentCur = 'INR';
+
+function setCurrency(cur) {
+  currentCur = cur;
+  document.getElementById('btn-inr').classList.toggle('active', cur === 'INR');
+  document.getElementById('btn-usd').classList.toggle('active', cur === 'USD');
+
+  if (cur === 'USD') {
+    document.getElementById('p1-cost').innerHTML = '$129<span style="font-size:0.9rem;font-weight:400;color:#606080">/mo</span>';
+    document.getElementById('p1-txn').textContent = '+ $0.006 per txn';
+    document.getElementById('p2-cost').innerHTML = '$599<span style="font-size:0.9rem;font-weight:400;color:#606080">/mo</span>';
+    document.getElementById('p2-txn').textContent = '+ $0.003 per txn';
+    document.getElementById('p3-cost').innerHTML = '$3,600<span style="font-size:0.9rem;font-weight:400;color:#606080">/mo</span>';
+    document.getElementById('p3-txn').textContent = '+ $0.001 per txn';
+  } else {
+    document.getElementById('p1-cost').innerHTML = '₹9,999<span style="font-size:0.9rem;font-weight:400;color:#606080">/mo</span>';
+    document.getElementById('p1-txn').textContent = '+ ₹0.50 per transaction';
+    document.getElementById('p2-cost').innerHTML = '₹49,999<span style="font-size:0.9rem;font-weight:400;color:#606080">/mo</span>';
+    document.getElementById('p2-txn').textContent = '+ ₹0.25 per transaction';
+    document.getElementById('p3-cost').innerHTML = '₹2,99,999<span style="font-size:0.9rem;font-weight:400;color:#606080">/mo</span>';
+    document.getElementById('p3-txn').textContent = '+ ₹0.10 per transaction';
+  }
+}
+</script>
+</body>
+</html>
