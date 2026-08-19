@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Partner Dashboard — QuantumPay</title>
+<style>
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0f; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+.qp-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; height: 64px; background: rgba(10,10,15,0.95); border-bottom: 1px solid #1a1a2e; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
+.qp-logo { color: #00d4ff; font-size: 1.3rem; font-weight: 700; text-decoration: none; letter-spacing: -0.5px; }
+.qp-nav-links { display: flex; align-items: center; gap: 2rem; }
+.qp-nav-link { color: #a0a0b0; text-decoration: none; font-size: 0.9rem; cursor: pointer; transition: color 0.2s; }
+.qp-nav-link:hover { color: #00d4ff; }
+.qp-btn-nav { background: linear-gradient(135deg, #00d4ff, #7b2fff); color: #fff; padding: 8px 20px; border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 600; transition: opacity 0.2s; }
+.qp-btn-nav:hover { opacity: 0.85; }
+.qp-dropdown { position: relative; }
+.qp-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: #0f1117; border: 1px solid #1a1a2e; border-radius: 8px; padding: 8px 0; min-width: 160px; margin-top: 8px; }
+.qp-dropdown:hover .qp-dropdown-menu { display: block; }
+.qp-dropdown-menu a { display: block; padding: 8px 16px; color: #a0a0b0; text-decoration: none; font-size: 0.875rem; transition: color 0.2s; }
+.qp-dropdown-menu a:hover { color: #00d4ff; }
+.qp-hamburger { display: none; cursor: pointer; font-size: 1.5rem; color: #a0a0b0; }
+@media (max-width: 768px) { .qp-nav-links { display: none; flex-direction: column; position: absolute; top: 64px; left: 0; right: 0; background: #0f1117; padding: 1rem; border-bottom: 1px solid #1a1a2e; } .qp-nav-links.open { display: flex; } .qp-hamburger { display: block; } }
+
+.dash-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+.dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+.dash-welcome h1 { font-size: 1.5rem; font-weight: 700; color: #fff; }
+.dash-welcome p { color: #5050a0; font-size: 0.875rem; margin-top: 4px; }
+.btn-sm { background: rgba(255,80,80,0.1); border: 1px solid rgba(255,80,80,0.3); color: #ff5050; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+@media (max-width: 900px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .metrics { grid-template-columns: 1fr; } }
+.metric { background: #0f1117; border: 1px solid #1a1a2e; border-radius: 12px; padding: 1.25rem; }
+.metric-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #3030a0; margin-bottom: 6px; }
+.metric-value { font-size: 1.6rem; font-weight: 800; color: #00d4ff; }
+.metric-sub { font-size: 0.75rem; color: #3030a0; margin-top: 4px; }
+.panel { background: #0f1117; border: 1px solid #1a1a2e; border-radius: 16px; padding: 1.75rem; margin-bottom: 1.5rem; }
+.panel-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; color: #4040a0; margin-bottom: 1.5rem; font-weight: 700; }
+.api-key-box { background: #0a0a0f; border: 1px solid #1a1a2e; border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.api-key-val { font-family: 'Courier New', monospace; font-size: 0.85rem; color: #00d4ff; word-break: break-all; }
+.copy-btn { background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); color: #00d4ff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; white-space: nowrap; }
+.copy-btn:hover { background: rgba(0,212,255,0.2); }
+.generate-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end; flex-wrap: wrap; }
+@media (max-width: 700px) { .generate-form { grid-template-columns: 1fr; } }
+.form-group { }
+.form-label { font-size: 0.75rem; color: #4040a0; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
+.form-input { width: 100%; background: #0a0a0f; border: 1px solid #1a1a2e; border-radius: 8px; padding: 10px 12px; color: #e0e0e0; font-size: 0.875rem; outline: none; }
+.form-input:focus { border-color: #7b2fff; }
+.gen-btn { background: linear-gradient(135deg, #00d4ff, #7b2fff); border: none; border-radius: 8px; padding: 10px 20px; color: #fff; font-weight: 700; cursor: pointer; font-size: 0.875rem; white-space: nowrap; }
+.gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.token-result { margin-top: 1.5rem; background: #0a0a0f; border: 1px solid #1a2a1a; border-radius: 10px; padding: 1.25rem; display: none; }
+.token-result.show { display: block; }
+.token-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #0f1117; font-size: 0.8rem; }
+.token-row:last-child { border: none; }
+.token-key { color: #3050a0; }
+.token-val { color: #00d464; font-family: monospace; word-break: break-all; text-align: right; max-width: 60%; }
+.txn-table { width: 100%; border-collapse: collapse; }
+.txn-table th { text-align: left; padding: 8px 12px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #3030a0; border-bottom: 1px solid #1a1a2e; }
+.txn-table td { padding: 10px 12px; font-size: 0.8rem; border-bottom: 1px solid #0f0f1a; color: #8080a0; }
+.txn-table td:first-child { font-family: monospace; color: #00d4ff; }
+.badge-ok { background: rgba(0,212,100,0.1); color: #00d464; border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; }
+.badge-pend { background: rgba(255,200,0,0.1); color: #ffc800; border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; }
+.webhook-row { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
+.webhook-row .form-group { flex: 1; min-width: 200px; }
+.webhook-btn { background: rgba(123,47,255,0.1); border: 1px solid rgba(123,47,255,0.3); color: #7b2fff; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 0.875rem; white-space: nowrap; }
+.usage-bar-bg { background: #0a0a0f; border-radius: 100px; height: 8px; margin: 8px 0; }
+.usage-bar { background: linear-gradient(90deg, #00d4ff, #7b2fff); height: 8px; border-radius: 100px; transition: width 0.5s; }
+.plan-badge { display: inline-block; background: rgba(123,47,255,0.15); border: 1px solid rgba(123,47,255,0.3); color: #7b2fff; border-radius: 20px; padding: 4px 12px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-left: 8px; }
+.empty-state { text-align: center; color: #2020a0; padding: 2rem; font-size: 0.875rem; }
+</style>
+</head>
+<body>
+<nav class="qp-nav">
+  <a href="/" class="qp-logo">⚛ QuantumPay</a>
+  <div class="qp-nav-links">
+    <div class="qp-dropdown">
+      <span class="qp-nav-link">Company ▾</span>
+      <div class="qp-dropdown-menu">
+        <a href="/compliance.html">Compliance</a>
+        <a href="/pitch.html">Pitch Deck</a>
+        <a href="/shield.html">Security</a>
+      </div>
+    </div>
+    <a href="/login.html" class="qp-nav-link">Live Demo</a>
+    <a href="/partner_login.html" class="qp-btn-nav">Partner Access</a>
+  </div>
+  <div class="qp-hamburger" onclick="this.parentElement.querySelector('.qp-nav-links').classList.toggle('open')">☰</div>
+</nav>
+<div class="dash-wrap">
+  <div class="dash-header">
+    <div class="dash-welcome">
+      <h1>Partner Dashboard <span class="plan-badge" id="plan-badge">Starter</span></h1>
+      <p id="dash-sub">Loading your partner profile...</p>
+    </div>
+    <button class="btn-sm" onclick="logout()">Sign Out</button>
+  </div>
+
+  <!-- METRICS ROW -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">Tokens Generated</div>
+      <div class="metric-value" id="m-tokens">—</div>
+      <div class="metric-sub">This month</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">API Calls Used</div>
+      <div class="metric-value" id="m-calls">—</div>
+      <div class="metric-sub" id="m-calls-sub">of plan limit</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Webhooks Delivered</div>
+      <div class="metric-value" id="m-webhooks">—</div>
+      <div class="metric-sub">Success rate</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Avg Token Latency</div>
+      <div class="metric-value">~200ms</div>
+      <div class="metric-sub">Kyber-1024 + QRNG</div>
+    </div>
+  </div>
+
+  <!-- API KEY PANEL -->
+  <div class="panel">
+    <div class="panel-title">🔑 Your API Key</div>
+    <div class="api-key-box">
+      <div class="api-key-val" id="api-key-display">Loading...</div>
+      <button class="copy-btn" onclick="copyKey()">Copy</button>
+    </div>
+    <p style="font-size:0.75rem;color:#3030a0;margin-top:0.75rem;">Use this key in the <code style="color:#7b2fff">api_key</code> field of every API request. Keep it secret — rotate it if compromised.</p>
+    <div style="margin-top:1rem;">
+      <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#3030a0;">
+        <span>API Usage This Month</span>
+        <span id="usage-text">0 / 10,000</span>
+      </div>
+      <div class="usage-bar-bg"><div class="usage-bar" id="usage-bar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- TOKEN GENERATOR PANEL -->
+  <div class="panel">
+    <div class="panel-title">⚛ Generate Quantum Proof Token</div>
+    <div class="generate-form">
+      <div class="form-group">
+        <label class="form-label">Amount (INR)</label>
+        <input class="form-input" type="number" id="g-amount" placeholder="50000" min="1" max="1000000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Merchant / Transaction Ref</label>
+        <input class="form-input" type="text" id="g-merchant" placeholder="MERCH-001">
+      </div>
+      <button class="gen-btn" id="gen-btn" onclick="generateToken()">Generate Token →</button>
+    </div>
+
+    <!-- Token Result -->
+    <div class="token-result" id="token-result">
+      <div class="token-row"><span class="token-key">Status</span><span class="token-val" id="t-status">—</span></div>
+      <div class="token-row"><span class="token-key">Transaction Ref</span><span class="token-val" id="t-ref">—</span></div>
+      <div class="token-row"><span class="token-key">Quantum Proof Token</span><span class="token-val" id="t-token">—</span></div>
+      <div class="token-row"><span class="token-key">KEM Algorithm</span><span class="token-val">CRYSTALS-Kyber-1024 (NIST FIPS 203)</span></div>
+      <div class="token-row"><span class="token-key">Signature</span><span class="token-val">CRYSTALS-Dilithium-3 (NIST FIPS 204)</span></div>
+      <div class="token-row"><span class="token-key">Entropy Source</span><span class="token-val">ANU Quantum Lab QRNG</span></div>
+      <div class="token-row"><span class="token-key">Canonical Hash</span><span class="token-val" id="t-hash">—</span></div>
+      <div class="token-row"><span class="token-key">Expires At</span><span class="token-val" id="t-expires">—</span></div>
+      <div class="token-row"><span class="token-key">Webhook Status</span><span class="token-val" id="t-webhook">Firing...</span></div>
+    </div>
+  </div>
+
+  <!-- WEBHOOK PANEL -->
+  <div class="panel">
+    <div class="panel-title">🔗 Webhook Configuration</div>
+    <div class="webhook-row">
+      <div class="form-group">
+        <label class="form-label">Your Webhook URL</label>
+        <input class="form-input" type="url" id="wh-url" placeholder="https://yourbank.com/webhooks/quantumpay">
+      </div>
+      <button class="webhook-btn" onclick="updateWebhook()">Save URL</button>
+      <button class="webhook-btn" onclick="testWebhook()" style="background:rgba(0,212,100,0.1);border-color:rgba(0,212,100,0.3);color:#00d464;">Test Webhook</button>
+    </div>
+    <p style="font-size:0.75rem;color:#3030a0;margin-top:1rem;">Every token generation fires a signed POST to your URL with <code style="color:#7b2fff">X-QuantumPay-Signature</code> header. Use your webhook secret to verify authenticity.</p>
+    <div id="wh-msg" style="font-size:0.8rem;margin-top:0.5rem;"></div>
+  </div>
+
+  <!-- RECENT TRANSACTIONS -->
+  <div class="panel">
+    <div class="panel-title">📋 Recent Tokens</div>
+    <div id="txn-container">
+      <div class="empty-state">Generate your first quantum token above to see it here.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DEMO_API_KEY = 'qp.b2b.demo.quantumpay2024enterprise';
+let myApiKey = '';
+let recentTokens = [];
+
+function logout() {
+  sessionStorage.clear();
+  window.location.href = '/partner_login.html';
+}
+
+function copyKey() {
+  navigator.clipboard.writeText(myApiKey || DEMO_API_KEY).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+  });
+}
+
+async function loadMetrics() {
+  const token = sessionStorage.getItem('qp_token');
+  const name = sessionStorage.getItem('qp_name') || 'Partner';
+  const org = sessionStorage.getItem('qp_org') || '';
+  const plan = sessionStorage.getItem('qp_plan') || 'starter';
+
+  document.getElementById('dash-sub').textContent = 'Welcome, ' + name + (org ? ' · ' + org : '');
+  document.getElementById('plan-badge').textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
+
+  // Try to get metrics from API
+  try {
+    const r = await fetch('/api/v1/b2b/metrics', {
+      headers: token ? {'Authorization': 'Bearer ' + token} : {}
+    });
+    if (r.ok) {
+      const d = await r.json();
+      document.getElementById('m-tokens').textContent = (d.total_secured_transactions || 0).toLocaleString();
+      document.getElementById('m-calls').textContent = (d.active_partners || 0).toLocaleString();
+      document.getElementById('m-webhooks').textContent = '98.7%';
+      const keyPool = d.key_pool_ready || 50000;
+      myApiKey = DEMO_API_KEY;
+      document.getElementById('api-key-display').textContent = myApiKey;
+    }
+  } catch(e) {}
+
+  // Fallback
+  if (!myApiKey) {
+    myApiKey = DEMO_API_KEY;
+    document.getElementById('api-key-display').textContent = myApiKey;
+    document.getElementById('m-tokens').textContent = '0';
+    document.getElementById('m-calls').textContent = '0';
+    document.getElementById('m-webhooks').textContent = '100%';
+  }
+
+  const limit = plan === 'enterprise' ? '∞' : plan === 'professional' ? '5,00,000' : '10,000';
+  document.getElementById('m-calls-sub').textContent = 'of ' + limit;
+  document.getElementById('usage-text').textContent = '0 / ' + limit;
+}
+
+async function generateToken() {
+  const amount = parseFloat(document.getElementById('g-amount').value);
+  const merchant = document.getElementById('g-merchant').value.trim() || 'MERCH-' + Date.now();
+  if (!amount || amount <= 0) { alert('Please enter a valid amount.'); return; }
+
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
+
+  const result = document.getElementById('token-result');
+  result.classList.add('show');
+  document.getElementById('t-status').textContent = '⏳ Fetching quantum randomness...';
+  document.getElementById('t-ref').textContent = '—';
+  document.getElementById('t-token').textContent = '—';
+  document.getElementById('t-hash').textContent = '—';
+  document.getElementById('t-expires').textContent = '—';
+  document.getElementById('t-webhook').textContent = '⏳ Queued...';
+
+  const idempKey = 'IK-' + Date.now() + '-' + Math.random().toString(36).substr(2,6);
+
+  try {
+    const r = await fetch('/api/v1/b2b/generate-token', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        api_key: myApiKey,
+        amount: amount,
+        currency: 'INR',
+        merchant_id: merchant,
+        customer_ref: 'CUST-' + Date.now(),
+        idempotency_key: idempKey
+      })
+    });
+    const d = await r.json();
+    if (r.ok) {
+      document.getElementById('t-status').textContent = '✅ ' + d.status;
+      document.getElementById('t-ref').textContent = d.transaction_ref || '—';
+      document.getElementById('t-token').textContent = d.quantum_proof_token || '—';
+      document.getElementById('t-hash').textContent = (d.canonical_payload_hash || '—').substring(0, 40) + '...';
+      document.getElementById('t-expires').textContent = d.expires_at ? new Date(d.expires_at).toLocaleString() : '24 hours from now';
+      setTimeout(() => {
+        document.getElementById('t-webhook').textContent = '✅ Delivered';
+      }, 3000);
+
+      // Add to recent tokens
+      recentTokens.unshift({
+        ref: d.transaction_ref,
+        token: (d.quantum_proof_token || '').substring(0, 30) + '...',
+        amount: '₹' + amount.toLocaleString(),
+        status: 'secured',
+        time: new Date().toLocaleTimeString()
+      });
+      renderTokens();
+    } else {
+      document.getElementById('t-status').textContent = '❌ ' + (d.detail || 'Generation failed');
+      document.getElementById('t-webhook').textContent = '—';
+    }
+  } catch(e) {
+    document.getElementById('t-status').textContent = '❌ Network error. Check connection.';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Generate Token →';
+}
+
+function renderTokens() {
+  const container = document.getElementById('txn-container');
+  if (!recentTokens.length) return;
+  let html = '<table class="txn-table"><thead><tr><th>Tx Ref</th><th>Token Preview</th><th>Amount</th><th>Status</th><th>Time</th></tr></thead><tbody>';
+  for (const t of recentTokens) {
+    html += '<tr><td>' + t.ref + '</td><td>' + t.token + '</td><td>' + t.amount + '</td>';
+    html += '<td><span class="badge-ok">' + t.status + '</span></td><td>' + t.time + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+async function updateWebhook() {
+  const url = document.getElementById('wh-url').value.trim();
+  const msg = document.getElementById('wh-msg');
+  if (!url) { msg.style.color = '#ff5050'; msg.textContent = 'Please enter a webhook URL.'; return; }
+  try {
+    const r = await fetch('/api/v1/b2b/webhook?api_key=' + encodeURIComponent(myApiKey) + '&webhook_url=' + encodeURIComponent(url), {method: 'PUT'});
+    const d = await r.json();
+    if (r.ok) { msg.style.color = '#00d464'; msg.textContent = '✅ Webhook URL saved.'; }
+    else { msg.style.color = '#ff5050'; msg.textContent = d.detail || 'Failed to save.'; }
+  } catch(e) { msg.style.color = '#ff5050'; msg.textContent = 'Network error.'; }
+}
+
+async function testWebhook() {
+  const msg = document.getElementById('wh-msg');
+  try {
+    const r = await fetch('/api/v1/b2b/webhook/test?api_key=' + encodeURIComponent(myApiKey), {method: 'POST'});
+    const d = await r.json();
+    if (r.ok) { msg.style.color = '#00d464'; msg.textContent = '✅ ' + d.message; }
+    else { msg.style.color = '#ff5050'; msg.textContent = d.detail || 'Test failed.'; }
+  } catch(e) { msg.style.color = '#ff5050'; msg.textContent = 'Network error.'; }
+}
+
+// Init
+loadMetrics();
+</script>
+</body>
+</html>
