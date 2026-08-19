@@ -1,208 +1,157 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QuantumPay — Enterprise Post-Quantum Security Layer</title>
-  <meta name="description" content="QuantumPay provides B2B Post-Quantum Cryptography and QRNG infrastructure for Central Banks and Financial Institutions. ISO-20022 Compliant."/>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="style.css"/>
-  <style>
-    /* B2B specific overrides */
-    .hero-title { font-size: 4rem; line-height: 1.1; margin-bottom: 24px; }
-    .hero-sub { font-size: 1.2rem; color: var(--dim); max-width: 700px; margin: 0 auto 40px; }
-    .terminal-block { background: #0d1117; border: 1px solid #1f2937; border-radius: 8px; padding: 20px; font-family: 'Space Mono', monospace; font-size: 0.85rem; color: #8b949e; text-align: left; max-width: 600px; margin: 40px auto; overflow-x: hidden; position: relative;}
-    .terminal-header { display: flex; gap: 8px; margin-bottom: 15px; }
-    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
-    .terminal-dot.r { background: #ff5f56; } .terminal-dot.y { background: #ffbd2e; } .terminal-dot.g { background: #27c93f; }
-    .typewriter { overflow: hidden; white-space: nowrap; margin: 0; animation: typing 3.5s steps(40, end), blink-caret .75s step-end infinite; }
-    @keyframes typing { from { width: 0 } to { width: 100% } }
-    @keyframes blink-caret { from, to { border-color: transparent } 50% { border-color: var(--green); } }
-    .code-green { color: var(--green); }
-    .code-cyan { color: var(--cyan); }
-    .code-pink { color: var(--pink); }
-    
-    .nav-links a.nav-b2b { color: var(--cyan); border: 1px solid rgba(0,245,255,0.3); padding: 6px 16px; border-radius: 20px; }
-    .nav-links a.nav-b2b:hover { background: rgba(0,245,255,0.1); }
-    .nav-links a.nav-admin { color: var(--pink); border: 1px solid rgba(255,107,107,0.3); padding: 6px 16px; border-radius: 20px; }
-    .nav-links a.nav-admin:hover { background: rgba(255,107,107,0.1); }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuantumPay — Quantum-Secured Payment Infrastructure</title>
+<style>
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0f; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+.qp-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; height: 64px; background: rgba(10,10,15,0.95); border-bottom: 1px solid #1a1a2e; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
+.qp-logo { color: #00d4ff; font-size: 1.3rem; font-weight: 700; text-decoration: none; letter-spacing: -0.5px; }
+.qp-nav-links { display: flex; align-items: center; gap: 2rem; }
+.qp-nav-link { color: #a0a0b0; text-decoration: none; font-size: 0.9rem; cursor: pointer; transition: color 0.2s; }
+.qp-nav-link:hover { color: #00d4ff; }
+.qp-btn-nav { background: linear-gradient(135deg, #00d4ff, #7b2fff); color: #fff; padding: 8px 20px; border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 600; transition: opacity 0.2s; }
+.qp-btn-nav:hover { opacity: 0.85; }
+.qp-dropdown { position: relative; }
+.qp-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: #0f1117; border: 1px solid #1a1a2e; border-radius: 8px; padding: 8px 0; min-width: 160px; margin-top: 8px; }
+.qp-dropdown:hover .qp-dropdown-menu { display: block; }
+.qp-dropdown-menu a { display: block; padding: 8px 16px; color: #a0a0b0; text-decoration: none; font-size: 0.875rem; transition: color 0.2s; }
+.qp-dropdown-menu a:hover { color: #00d4ff; }
+.qp-hamburger { display: none; cursor: pointer; font-size: 1.5rem; color: #a0a0b0; }
+@media (max-width: 768px) { .qp-nav-links { display: none; flex-direction: column; position: absolute; top: 64px; left: 0; right: 0; background: #0f1117; padding: 1rem; border-bottom: 1px solid #1a1a2e; } .qp-nav-links.open { display: flex; } .qp-hamburger { display: block; } }
+
+.hero { text-align: center; padding: 5rem 2rem 3rem; }
+.hero-badge { display: inline-block; background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); color: #00d4ff; padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 1.5rem; }
+.hero h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; line-height: 1.15; margin-bottom: 1rem; background: linear-gradient(135deg, #fff 0%, #00d4ff 50%, #7b2fff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero p { font-size: 1.1rem; color: #8080a0; max-width: 600px; margin: 0 auto 2.5rem; line-height: 1.7; }
+.stats-bar { display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap; margin-bottom: 4rem; }
+.stat { text-align: center; }
+.stat-num { font-size: 1.8rem; font-weight: 800; color: #00d4ff; }
+.stat-label { font-size: 0.75rem; color: #5050a0; text-transform: uppercase; letter-spacing: 1px; }
+.gateway { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; max-width: 1100px; margin: 0 auto; padding: 0 2rem 5rem; }
+@media (max-width: 900px) { .gateway { grid-template-columns: 1fr; max-width: 480px; } }
+.zone-card { background: #0f1117; border: 1px solid #1a1a2e; border-radius: 16px; padding: 2.5rem 2rem; text-align: center; transition: transform 0.2s, border-color 0.2s; display: flex; flex-direction: column; }
+.zone-card:hover { transform: translateY(-4px); }
+.zone-card.public { border-top: 3px solid #00d4ff; }
+.zone-card.demo { border-top: 3px solid #ff6b6b; }
+.zone-card.partner { border-top: 3px solid #7b2fff; }
+.zone-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.zone-tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; margin-bottom: 0.75rem; }
+.zone-card.public .zone-tag { color: #00d4ff; }
+.zone-card.demo .zone-tag { color: #ff6b6b; }
+.zone-card.partner .zone-tag { color: #7b2fff; }
+.zone-card h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.75rem; color: #fff; }
+.zone-card p { font-size: 0.875rem; color: #5050a0; line-height: 1.7; margin-bottom: 1.5rem; flex: 1; }
+.zone-features { list-style: none; text-align: left; margin-bottom: 2rem; }
+.zone-features li { font-size: 0.8rem; color: #6060a0; padding: 4px 0; }
+.zone-features li::before { content: "✓ "; color: #00d4ff; }
+.zone-card.demo .zone-features li::before { color: #ff6b6b; }
+.zone-card.partner .zone-features li::before { color: #7b2fff; }
+.zone-btn { display: block; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 0.9rem; transition: opacity 0.2s; margin-top: auto; }
+.zone-card.public .zone-btn { background: rgba(0,212,255,0.1); color: #00d4ff; border: 1px solid rgba(0,212,255,0.3); }
+.zone-card.demo .zone-btn { background: rgba(255,107,107,0.1); color: #ff6b6b; border: 1px solid rgba(255,107,107,0.3); }
+.zone-card.partner .zone-btn { background: linear-gradient(135deg, #00d4ff, #7b2fff); color: #fff; }
+.zone-btn:hover { opacity: 0.8; }
+.trust-section { text-align: center; padding: 3rem 2rem; border-top: 1px solid #1a1a2e; }
+.trust-section h3 { color: #3030a0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 1.5rem; }
+.badges { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; }
+.badge { background: #0f1117; border: 1px solid #1a1a2e; border-radius: 8px; padding: 8px 16px; font-size: 0.75rem; color: #4040a0; }
+</style>
 </head>
 <body>
-  <canvas id="qcanvas"></canvas>
-
-  <!-- NAV -->
-  <nav class="nav">
-    <div class="nav-logo">
-      <div class="nav-logo-icon">⚛</div>
-      <span>Quantum<strong>Pay</strong></span>
-    </div>
-    <div class="nav-links">
-      <a href="#infrastructure">Infrastructure</a>
-      <a href="#compliance">ISO-20022</a>
-      <a href="demo.html" class="nav-cta">Live Demo</a>
-      <a href="b2b.html" class="nav-b2b">Developer Portal</a>
-      <a href="admin.html" class="nav-admin">Master Admin</a>
-    </div>
-  </nav>
-
-  <!-- HERO -->
-  <section class="hero">
-    <div class="hero-badge">B2B Financial Middleware &nbsp;·&nbsp; ⚛ Enterprise Grade</div>
-    <h1 class="hero-title">
-      The Post-Quantum<br/>
-      Security Layer for<br/>
-      <span class="glow-text">Global Finance</span>
-    </h1>
-    <p class="hero-sub">
-      Providing Tier-1 Banks and Financial Institutions with mathematically unhackable cryptographic infrastructure. Integrating <strong>NIST FIPS 203/204 algorithms</strong> directly into ISO-20022 payment flows.
-    </p>
-    <div class="hero-btns">
-      <a href="b2b.html" class="btn-primary">
-        <span class="btn-glow"></span>
-        🏦 Access B2B Portal
-      </a>
-      <a href="admin.html" class="btn-secondary">🛡 Request Security Audit</a>
-    </div>
-    
-    <!-- TERMINAL SIMULATION -->
-    <div class="terminal-block">
-      <div class="terminal-header">
-        <div class="terminal-dot r"></div><div class="terminal-dot y"></div><div class="terminal-dot g"></div>
-      </div>
-      <div><span class="code-cyan">quantumpay-cli</span> init --protocol=pqc --standard=iso-20022</div>
-      <div style="margin-top:8px">Initializing Quantum Entropy Pool (QRNG)... <span class="code-green">[OK]</span></div>
-      <div>Generating ML-KEM-1024 Key Encapsulation... <span class="code-green">[OK]</span></div>
-      <div>Generating ML-DSA-87 Digital Signatures... <span class="code-green">[OK]</span></div>
-      <div style="margin-top:8px" class="typewriter"><span class="code-pink">🔒 Connection established. Payload encrypted.</span></div>
-    </div>
-
-    <div class="hero-stats">
-      <div class="hstat"><div class="hstat-val">100%</div><div class="hstat-label">ISO-20022 Native</div></div>
-      <div class="hstat-div"></div>
-      <div class="hstat"><div class="hstat-val">FIPS-203</div><div class="hstat-label">NIST Standard</div></div>
-      <div class="hstat-div"></div>
-      <div class="hstat"><div class="hstat-val">QRNG</div><div class="hstat-label">Absolute Entropy</div></div>
-      <div class="hstat-div"></div>
-      <div class="hstat"><div class="hstat-val">Zero</div><div class="hstat-label">Trust Architecture</div></div>
-    </div>
-  </section>
-
-  <!-- INFRASTRUCTURE -->
-  <section class="section problem-section" id="infrastructure">
-    <div class="section-label">THE INFRASTRUCTURE</div>
-    <h2 class="section-title">Replace Legacy RSA with <span class="gradient-text">Mathematical Certainty</span></h2>
-    <div class="problem-grid">
-      <div class="problem-card">
-        <div class="prob-icon">⚛</div>
-        <div class="prob-title">Quantum Randomness (QRNG)</div>
-        <div class="prob-desc">We replace pseudo-random API tokens with true quantum entropy derived from photon measurements, ensuring absolute cryptographic unpredictability.</div>
-        <div class="prob-tag" style="background:rgba(0,245,255,0.1);color:var(--cyan)">HARDWARE ENTROPY</div>
-      </div>
-      <div class="problem-card">
-        <div class="prob-icon">🔐</div>
-        <div class="prob-title">Kyber & Dilithium Arrays</div>
-        <div class="prob-desc">All payloads are encrypted using CRYSTALS-Kyber (ML-KEM) and signed using CRYSTALS-Dilithium (ML-DSA) to neutralize the Store-Now-Decrypt-Later threat.</div>
-        <div class="prob-tag" style="background:rgba(255,107,107,0.1);color:var(--pink)">NIST STANDARDIZED</div>
-      </div>
-      <div class="problem-card">
-        <div class="prob-icon">⛓</div>
-        <div class="prob-title">Immutable Ledger Proofs</div>
-        <div class="prob-desc">Every B2B API request is hashed into a Merkle Chain and broadcasted to public Git repositories, providing zero-cost, mathematically verifiable audit trails.</div>
-        <div class="prob-tag" style="background:rgba(0,255,170,0.1);color:var(--green)">CRYPTOGRAPHIC PROOF</div>
-      </div>
-      <div class="problem-card">
-        <div class="prob-icon">🛡</div>
-        <div class="prob-title">Proactive Threat Hunting</div>
-        <div class="prob-desc">Our AI Behavioral Engine analyzes payload structures and webhook latency to detect anomalies instantly, routing alerts via Apprise to your SOC team.</div>
-        <div class="prob-tag" style="background:rgba(255,204,0,0.1);color:var(--yellow)">ZERO-DAY MITIGATION</div>
+<nav class="qp-nav">
+  <a href="/" class="qp-logo">⚛ QuantumPay</a>
+  <div class="qp-nav-links">
+    <div class="qp-dropdown">
+      <span class="qp-nav-link">Company ▾</span>
+      <div class="qp-dropdown-menu">
+        <a href="/compliance.html">Compliance</a>
+        <a href="/pitch.html">Pitch Deck</a>
+        <a href="/shield.html">Security</a>
       </div>
     </div>
-  </section>
+    <a href="/login.html" class="qp-nav-link">Live Demo</a>
+    <a href="/partner_login.html" class="qp-btn-nav">Partner Access</a>
+  </div>
+  <div class="qp-hamburger" onclick="this.parentElement.querySelector('.qp-nav-links').classList.toggle('open')">☰</div>
+</nav>
+<section class="hero">
+  <div class="hero-badge">⚡ NIST FIPS 203 · ISO 20022 · RBI Compliant</div>
+  <h1>Quantum-Secured Payment Infrastructure</h1>
+  <p>The world's first post-quantum cryptographic middleware for banks, fintechs and enterprises. Every transaction secured with Kyber-1024 — unbreakable by quantum computers.</p>
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-num" id="s-attacks">0</div><div class="stat-label">Attacks Blocked</div></div>
+    <div class="stat"><div class="stat-num">99.99%</div><div class="stat-label">Uptime SLA</div></div>
+    <div class="stat"><div class="stat-num">&lt;200ms</div><div class="stat-label">Token Latency</div></div>
+    <div class="stat"><div class="stat-num">1024-bit</div><div class="stat-label">Quantum Key Size</div></div>
+  </div>
+</section>
 
-  <!-- COMPLIANCE / INTEGRATION -->
-  <section class="section" id="compliance">
-    <div class="section-label">INTEGRATION</div>
-    <h2 class="section-title">Drop-in <span class="gradient-text">ISO-20022</span> Webhooks</h2>
-    <div class="flow-steps">
-      <div class="flow-step">
-        <div class="step-num">01</div>
-        <div class="step-icon">🔑</div>
-        <div class="step-title">Generate API Keys</div>
-        <div class="step-desc">Access the B2B portal to generate your institution's API keys and unique Webhook Secret for HMAC-SHA256 signature verification.</div>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <div class="step-num">02</div>
-        <div class="step-icon">📡</div>
-        <div class="step-title">Send JSON Payload</div>
-        <div class="step-desc">Transmit standard payment instructions. QuantumPay acts as the secure middleware layer between your core banking system and the recipient.</div>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <div class="step-num">03</div>
-        <div class="step-icon">⚛</div>
-        <div class="step-title">PQC Encapsulation</div>
-        <div class="step-desc">The payload is instantly wrapped in ML-KEM-1024 encryption and logged into the immutable audit blockchain.</div>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <div class="step-num">04</div>
-        <div class="step-icon">🏦</div>
-        <div class="step-title">Webhook Delivery</div>
-        <div class="step-desc">The recipient bank receives an asynchronous ISO-20022 XML webhook, signed with an X-QuantumPay-Signature to prove authenticity.</div>
-      </div>
-    </div>
-  </section>
+<section class="gateway">
+  <div class="zone-card public">
+    <div class="zone-icon">🌐</div>
+    <div class="zone-tag">Public Zone</div>
+    <h2>Learn About QuantumPay</h2>
+    <p>Explore our technology, compliance certifications and pricing. Open to everyone — no login required.</p>
+    <ul class="zone-features">
+      <li>NIST FIPS 203/204 Compliance</li>
+      <li>RBI Data Localization</li>
+      <li>ISO 20022 Standard</li>
+      <li>API Pricing Tiers</li>
+      <li>Technical Pitch Deck</li>
+    </ul>
+    <a href="/compliance.html" class="zone-btn">Explore →</a>
+  </div>
 
-  <!-- CTA -->
-  <section class="section" style="text-align:center; padding-bottom:100px;">
-    <h2 class="section-title">Upgrade Your Core Banking Security</h2>
-    <p style="color:var(--dim); margin-bottom:30px;">Deploy the world's most advanced cryptographic middleware today.</p>
-    <a href="b2b.html" class="btn-primary" style="font-size:1.1rem; padding:15px 40px;">Launch Developer Portal</a>
-  </section>
+  <div class="zone-card demo">
+    <div class="zone-icon">🎬</div>
+    <div class="zone-tag">Live Demo</div>
+    <h2>See Quantum Security in Action</h2>
+    <p>Watch a real payment being secured with quantum cryptography. Built for investors and bank evaluators.</p>
+    <ul class="zone-features">
+      <li>Real Kyber-1024 token generated</li>
+      <li>Live quantum randomness (QRNG)</li>
+      <li>Dilithium signature visible</li>
+      <li>Token verification in real time</li>
+      <li>No setup required</li>
+    </ul>
+    <a href="/login.html" class="zone-btn">Try Demo →</a>
+  </div>
 
-  <footer style="text-align:center; padding:40px; color:rgba(255,255,255,0.2); font-size:0.8rem; border-top:1px solid rgba(255,255,255,0.05);">
-    &copy; 2026 QuantumPay Infrastructure. All Rights Reserved. Built for Tier-1 Financial Institutions.
-  </footer>
+  <div class="zone-card partner">
+    <div class="zone-icon">🔑</div>
+    <div class="zone-tag">B2B Partner Portal</div>
+    <h2>Register Your Bank or Fintech</h2>
+    <p>Get your QRNG-generated API key. Integrate quantum security into your payment stack in minutes.</p>
+    <ul class="zone-features">
+      <li>QRNG-generated API key</li>
+      <li>Token monitor dashboard</li>
+      <li>Webhook configuration</li>
+      <li>Usage metrics & billing</li>
+      <li>ISO 20022 audit export</li>
+    </ul>
+    <a href="/partner_login.html" class="zone-btn">Get API Access →</a>
+  </div>
+</section>
 
-  <script>
-    // Minimal Background Animation
-    const canvas = document.getElementById('qcanvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    
-    let particles = [];
-    for(let i=0; i<50; i++){
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        s: Math.random() * 2 + 1,
-        vx: (Math.random() - 0.5) * 0.5,
-        vy: (Math.random() - 0.5) * 0.5
-      });
-    }
-    
-    function draw() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle = 'rgba(0, 245, 255, 0.5)';
-      particles.forEach(p => {
-        p.x += p.vx; p.y += p.vy;
-        if(p.x < 0 || p.x > canvas.width) p.vx *= -1;
-        if(p.y < 0 || p.y > canvas.height) p.vy *= -1;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.s, 0, Math.PI*2);
-        ctx.fill();
-      });
-      requestAnimationFrame(draw);
-    }
-    draw();
-    
-    window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    });
-  </script>
+<div class="trust-section">
+  <h3>Built on Industry Standards</h3>
+  <div class="badges">
+    <div class="badge">NIST FIPS 203 · Kyber-1024</div>
+    <div class="badge">NIST FIPS 204 · Dilithium-3</div>
+    <div class="badge">ISO 20022 pacs.008</div>
+    <div class="badge">RBI Data Localization</div>
+    <div class="badge">CHSH Bell Inequality Verified</div>
+  </div>
+</div>
+
+<script>
+fetch('/api/security/stats').then(r=>r.json()).then(d=>{
+  document.getElementById('s-attacks').textContent = (d.attacks_blocked||0).toLocaleString();
+}).catch(()=>{});
+</script>
 </body>
 </html>
