@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Partner Access — QuantumPay</title>
+<style>
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0f; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+.qp-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; height: 64px; background: rgba(10,10,15,0.95); border-bottom: 1px solid #1a1a2e; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
+.qp-logo { color: #00d4ff; font-size: 1.3rem; font-weight: 700; text-decoration: none; letter-spacing: -0.5px; }
+.qp-nav-links { display: flex; align-items: center; gap: 2rem; }
+.qp-nav-link { color: #a0a0b0; text-decoration: none; font-size: 0.9rem; cursor: pointer; transition: color 0.2s; }
+.qp-nav-link:hover { color: #00d4ff; }
+.qp-btn-nav { background: linear-gradient(135deg, #00d4ff, #7b2fff); color: #fff; padding: 8px 20px; border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 600; transition: opacity 0.2s; }
+.qp-btn-nav:hover { opacity: 0.85; }
+.qp-dropdown { position: relative; }
+.qp-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: #0f1117; border: 1px solid #1a1a2e; border-radius: 8px; padding: 8px 0; min-width: 160px; margin-top: 8px; }
+.qp-dropdown:hover .qp-dropdown-menu { display: block; }
+.qp-dropdown-menu a { display: block; padding: 8px 16px; color: #a0a0b0; text-decoration: none; font-size: 0.875rem; transition: color 0.2s; }
+.qp-dropdown-menu a:hover { color: #00d4ff; }
+.qp-hamburger { display: none; cursor: pointer; font-size: 1.5rem; color: #a0a0b0; }
+@media (max-width: 768px) { .qp-nav-links { display: none; flex-direction: column; position: absolute; top: 64px; left: 0; right: 0; background: #0f1117; padding: 1rem; border-bottom: 1px solid #1a1a2e; } .qp-nav-links.open { display: flex; } .qp-hamburger { display: block; } }
+
+.auth-wrap { min-height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center; padding: 2rem; }
+.auth-box { background: #0f1117; border: 1px solid #1a1a2e; border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 480px; }
+.auth-logo { text-align: center; font-size: 2rem; margin-bottom: 0.5rem; }
+.auth-title { text-align: center; font-size: 1.4rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; }
+.auth-sub { text-align: center; font-size: 0.85rem; color: #5050a0; margin-bottom: 2rem; }
+.tabs { display: flex; gap: 0; background: #0a0a0f; border-radius: 10px; padding: 4px; margin-bottom: 2rem; }
+.tab { flex: 1; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; font-size: 0.875rem; color: #5050a0; transition: all 0.2s; }
+.tab.active { background: #1a1a2e; color: #00d4ff; font-weight: 600; }
+.form-group { margin-bottom: 1.25rem; }
+label { display: block; font-size: 0.8rem; color: #6060a0; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+input { width: 100%; background: #0a0a0f; border: 1px solid #1a1a2e; border-radius: 8px; padding: 12px 14px; color: #e0e0e0; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+input:focus { border-color: #00d4ff; }
+input::placeholder { color: #303050; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+.btn-primary { width: 100%; background: linear-gradient(135deg, #00d4ff, #7b2fff); border: none; border-radius: 10px; padding: 14px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 0.5rem; transition: opacity 0.2s; }
+.btn-primary:hover { opacity: 0.85; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.msg { margin-top: 1rem; padding: 12px; border-radius: 8px; font-size: 0.875rem; text-align: center; display: none; }
+.msg.success { background: rgba(0,212,100,0.1); border: 1px solid rgba(0,212,100,0.3); color: #00d464; display: block; }
+.msg.error { background: rgba(255,80,80,0.1); border: 1px solid rgba(255,80,80,0.3); color: #ff5050; display: block; }
+.divider { text-align: center; color: #2020a0; font-size: 0.75rem; margin: 1.5rem 0; }
+.plan-select { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.5rem; }
+.plan-opt { border: 1px solid #1a1a2e; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: all 0.2s; }
+.plan-opt:hover { border-color: #7b2fff; }
+.plan-opt.selected { border-color: #7b2fff; background: rgba(123,47,255,0.1); }
+.plan-opt .plan-name { font-size: 0.8rem; font-weight: 700; color: #e0e0e0; }
+.plan-opt .plan-price { font-size: 0.7rem; color: #5050a0; margin-top: 2px; }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<nav class="qp-nav">
+  <a href="/" class="qp-logo">⚛ QuantumPay</a>
+  <div class="qp-nav-links">
+    <div class="qp-dropdown">
+      <span class="qp-nav-link">Company ▾</span>
+      <div class="qp-dropdown-menu">
+        <a href="/compliance.html">Compliance</a>
+        <a href="/pitch.html">Pitch Deck</a>
+        <a href="/shield.html">Security</a>
+      </div>
+    </div>
+    <a href="/login.html" class="qp-nav-link">Live Demo</a>
+    <a href="/partner_login.html" class="qp-btn-nav">Partner Access</a>
+  </div>
+  <div class="qp-hamburger" onclick="this.parentElement.querySelector('.qp-nav-links').classList.toggle('open')">☰</div>
+</nav>
+<div class="auth-wrap">
+  <div class="auth-box">
+    <div class="auth-logo">🔑</div>
+    <div class="auth-title">Partner Access</div>
+    <div class="auth-sub">B2B API access for banks, fintechs & enterprises</div>
+
+    <div class="tabs">
+      <div class="tab active" id="tab-login" onclick="switchTab('login')">Sign In</div>
+      <div class="tab" id="tab-register" onclick="switchTab('register')">Apply for Access</div>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="form-login">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="l-email" placeholder="cto@yourbank.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="l-pass" placeholder="••••••••">
+      </div>
+      <button class="btn-primary" onclick="doLogin()">Sign In →</button>
+      <div class="msg" id="l-msg"></div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="form-register" class="hidden">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Your Name</label>
+          <input type="text" id="r-name" placeholder="Ravi Kumar">
+        </div>
+        <div class="form-group">
+          <label>Organisation Name</label>
+          <input type="text" id="r-org" placeholder="HDFC Bank Ltd.">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Work Email</label>
+        <input type="email" id="r-email" placeholder="cto@yourbank.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="r-pass" placeholder="Min 8 characters">
+      </div>
+      <div class="form-group">
+        <label>Webhook URL (optional — configure later)</label>
+        <input type="url" id="r-webhook" placeholder="https://yourbank.com/webhooks/quantumpay">
+      </div>
+      <div class="form-group">
+        <label>Select Plan</label>
+        <div class="plan-select">
+          <div class="plan-opt selected" onclick="selectPlan(this,'starter')">
+            <div class="plan-name">Starter</div>
+            <div class="plan-price">₹9,999/mo</div>
+          </div>
+          <div class="plan-opt" onclick="selectPlan(this,'professional')">
+            <div class="plan-name">Pro</div>
+            <div class="plan-price">₹49,999/mo</div>
+          </div>
+          <div class="plan-opt" onclick="selectPlan(this,'enterprise')">
+            <div class="plan-name">Enterprise</div>
+            <div class="plan-price">Custom</div>
+          </div>
+        </div>
+        <input type="hidden" id="r-plan" value="starter">
+      </div>
+      <button class="btn-primary" onclick="doRegister()">Submit Application →</button>
+      <div class="msg" id="r-msg"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedPlan = 'starter';
+
+function switchTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab==='login');
+  document.getElementById('tab-register').classList.toggle('active', tab==='register');
+  document.getElementById('form-login').classList.toggle('hidden', tab!=='login');
+  document.getElementById('form-register').classList.toggle('hidden', tab!=='register');
+}
+
+function selectPlan(el, plan) {
+  document.querySelectorAll('.plan-opt').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedPlan = plan;
+  document.getElementById('r-plan').value = plan;
+}
+
+async function doLogin() {
+  const email = document.getElementById('l-email').value.trim();
+  const pass = document.getElementById('l-pass').value;
+  const msg = document.getElementById('l-msg');
+  if (!email || !pass) { showMsg(msg, 'error', 'Please fill all fields.'); return; }
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({upi_id: email, password: pass})
+    });
+    const d = await r.json();
+    if (r.ok) {
+      sessionStorage.setItem('qp_token', d.access_token);
+      sessionStorage.setItem('qp_name', d.name || email);
+      sessionStorage.setItem('qp_upi', d.upi_id || email);
+      showMsg(msg, 'success', 'Signed in! Redirecting...');
+      setTimeout(() => { window.location.href = '/partner_dashboard.html'; }, 800);
+    } else {
+      showMsg(msg, 'error', d.detail || 'Invalid credentials.');
+    }
+  } catch(e) { showMsg(msg, 'error', 'Network error. Try again.'); }
+}
+
+async function doRegister() {
+  const name = document.getElementById('r-name').value.trim();
+  const org = document.getElementById('r-org').value.trim();
+  const email = document.getElementById('r-email').value.trim();
+  const pass = document.getElementById('r-pass').value;
+  const webhook = document.getElementById('r-webhook').value.trim();
+  const msg = document.getElementById('r-msg');
+  if (!name || !org || !email || !pass) { showMsg(msg, 'error', 'Please fill all required fields.'); return; }
+  if (pass.length < 8) { showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
+  try {
+    const r = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, upi_id: email, email, password: pass})
+    });
+    const d = await r.json();
+    if (r.ok) {
+      sessionStorage.setItem('qp_token', d.access_token);
+      sessionStorage.setItem('qp_name', name);
+      sessionStorage.setItem('qp_upi', email);
+      sessionStorage.setItem('qp_org', org);
+      sessionStorage.setItem('qp_webhook', webhook);
+      sessionStorage.setItem('qp_plan', selectedPlan);
+      showMsg(msg, 'success', 'Application submitted! Setting up your dashboard...');
+      setTimeout(() => { window.location.href = '/partner_dashboard.html'; }, 1000);
+    } else {
+      showMsg(msg, 'error', d.detail || 'Registration failed.');
+    }
+  } catch(e) { showMsg(msg, 'error', 'Network error. Try again.'); }
+}
+
+function showMsg(el, type, text) {
+  el.className = 'msg ' + type;
+  el.textContent = text;
+}
+</script>
+</body>
+</html>
