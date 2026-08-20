@@ -558,10 +558,14 @@ async def refill_key_pool():
                     available = (await c.fetchone())[0]
                 needed = KEY_POOL_TARGET - available
                 if needed > 0:
-                    batch = min(needed, 100000)
+                    # Lower batch size to prevent Railway OOM kill during startup
+                    batch = min(needed, 5000)
                     tokens = ibm_qiskit_engine.generate_tokens(batch)
                     await db.executemany("INSERT INTO key_pool (token) VALUES (?)", [(t,) for t in tokens])
                     await db.commit()
+                    # CRITICAL: Yield to the event loop so live traffic and startup healthchecks don't fail!
+                    import asyncio
+                    await asyncio.sleep(0.1)
         except Exception as e:
             print(f"[WARN] Key pool refill error: {e}")
         await asyncio.sleep(30)
