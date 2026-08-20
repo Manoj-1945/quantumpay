@@ -575,7 +575,19 @@ async def refill_key_pool():
 async def startup():
     global db_pool
     if DATABASE_URL:
-        db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=20, command_timeout=10.0, max_inactive_connection_lifetime=300.0)
+        import asyncio
+        for attempt in range(5):
+            try:
+                # Increased timeout to 60s and lowered min_size to 1 to prevent connection flooding on restart
+                db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=20, command_timeout=60.0, max_inactive_connection_lifetime=300.0)
+                break
+            except Exception as e:
+                print(f"[WARN] Database connection timeout on attempt {attempt+1}. Retrying in 5s... Error: {e}")
+                await asyncio.sleep(5)
+        else:
+            print("[CRITICAL] Could not connect to PostgreSQL after 5 attempts.")
+            return
+
         await init_db()
         asyncio.create_task(refill_key_pool())
         print("[STARTED] QuantumPay v5.2 — PostgreSQL Enterprise Active")
