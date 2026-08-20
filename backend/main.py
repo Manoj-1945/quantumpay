@@ -548,7 +548,7 @@ class IBMQiskitEngine:
 ibm_qiskit_engine = IBMQiskitEngine()
 
 # ─── KEY POOL BACKGROUND REFILL ───────────────────────────────────────────────
-KEY_POOL_TARGET = 50000
+KEY_POOL_TARGET = 12000000
 
 async def refill_key_pool():
     while True:
@@ -558,7 +558,7 @@ async def refill_key_pool():
                     available = (await c.fetchone())[0]
                 needed = KEY_POOL_TARGET - available
                 if needed > 0:
-                    batch  = min(needed, 500)
+                    batch = min(needed, 100000)
                     tokens = ibm_qiskit_engine.generate_tokens(batch)
                     await db.executemany("INSERT INTO key_pool (token) VALUES (?)", [(t,) for t in tokens])
                     await db.commit()
@@ -1006,7 +1006,7 @@ async def websocket_live(ws: WebSocket, token: Optional[str] = None):
                 async with db.execute("SELECT COUNT(*) FROM b2b_transactions") as c:
                     b2b_tx = (await c.fetchone())[0]
             await ws.send_json({"type": "qrng_update", "data": nums,
-                                "key_pool_ready": max(pool_count, 50000),
+                                "key_pool_ready": pool_count,
                                 "b2b_transactions_total": max(b2b_tx, 1420),
                                 "chsh_s_value": 2.8284,
                                 "timestamp": datetime.utcnow().isoformat()})
