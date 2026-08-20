@@ -579,7 +579,7 @@ async def startup():
         for attempt in range(5):
             try:
                 # Increased timeout to 60s and lowered min_size to 1 to prevent connection flooding on restart
-                db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=20, command_timeout=60.0, max_inactive_connection_lifetime=300.0)
+                db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=20, command_timeout=5.0, max_inactive_connection_lifetime=300.0)
                 break
             except Exception as e:
                 print(f"[WARN] Database connection timeout on attempt {attempt+1}. Retrying in 5s... Error: {e}")
