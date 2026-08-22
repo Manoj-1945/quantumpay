@@ -548,7 +548,7 @@ class IBMQiskitEngine:
 ibm_qiskit_engine = IBMQiskitEngine()
 
 # ─── KEY POOL BACKGROUND REFILL ───────────────────────────────────────────────
-KEY_POOL_TARGET = 12000000
+KEY_POOL_TARGET = 500000
 
 async def refill_key_pool():
     while True:
