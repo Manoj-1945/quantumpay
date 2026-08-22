@@ -617,7 +617,7 @@ async def startup():
 @app.get("/", response_class=HTMLResponse)
 async def root():
     try:
-        with open("b2b_portal.html", "r", encoding="utf-8") as f:
+        with open("index.html", "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
     except FileNotFoundError:
         return HTMLResponse(content="""<html><body style='background:#080C14;color:#fff;
