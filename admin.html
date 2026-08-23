@@ -717,6 +717,7 @@ const adminToken = sessionStorage.getItem('qp_token') || localStorage.getItem('t
 async function loadPendingPartners() {
   try {
     const r = await fetch('/api/admin/pending-partners', {
+      credentials: 'include',
       headers: {'Authorization': 'Bearer ' + adminToken}
     });
     if (!r.ok) { console.warn('Not admin or not logged in'); return; }
@@ -785,6 +786,7 @@ async function confirmIssueKey() {
   try {
     const r = await fetch('/api/admin/partners/issue-key', {
       method: 'POST',
+      credentials: 'include',
       headers: {'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json'},
       body: JSON.stringify({email, partner_name: name, org_name: org, plan})
     });
