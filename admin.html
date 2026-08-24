@@ -715,61 +715,75 @@ window.addEventListener('DOMContentLoaded',()=>{
 const adminToken = sessionStorage.getItem('qp_token') || localStorage.getItem('token') || '';
 
 async function loadPendingPartners() {
+  const pList = document.getElementById('pending-list');
+  const aList = document.getElementById('approved-list');
+  const pCount = document.getElementById('pending-count');
+  const aCount = document.getElementById('approved-count');
+
+  pList.innerHTML = '<div style="color:#4040a0;font-size:0.8rem;">Loading...</div>';
+  aList.innerHTML = '<div style="color:#4040a0;font-size:0.8rem;">Loading...</div>';
+
   try {
     const r = await fetch('/api/admin/pending-partners', {
       credentials: 'include',
       headers: {'Authorization': 'Bearer ' + adminToken}
     });
-    if (!r.ok) { console.warn('Not admin or not logged in'); return; }
-    const d = await r.json();
 
-    document.getElementById('pending-count').textContent = d.total_pending || 0;
-    document.getElementById('approved-count').textContent = d.total_approved || 0;
-
-    // Render pending
-    const pList = document.getElementById('pending-list');
-    if (!d.pending || !d.pending.length) {
-      pList.innerHTML = '<div style="color:#2020a0;font-size:0.8rem;">No pending applications.</div>';
-    } else {
-      pList.innerHTML = d.pending.map(p => `
-        <div style="background:#0a0a0f;border:1px solid #1a2a1a;border-radius:10px;padding:1rem;margin-bottom:0.75rem;">
-          <div style="font-size:0.875rem;font-weight:600;color:#e0e0e0;">${p.name}</div>
-          <div style="font-size:0.75rem;color:#4040a0;margin:2px 0;">${p.email}</div>
-          <div style="font-size:0.7rem;color:#2020a0;">Applied: ${new Date(p.registered_at).toLocaleDateString()}</div>
-          <button onclick="openIssueModal('${p.email}','${p.name}','')"
-            style="margin-top:0.75rem;background:linear-gradient(135deg,#00d4ff,#7b2fff);border:none;border-radius:6px;padding:7px 14px;color:#fff;font-size:0.8rem;font-weight:600;cursor:pointer;width:100%;">
-            Issue API Key →
-          </button>
-        </div>`).join('');
+    if (r.status === 401 || r.status === 403) {
+      pList.innerHTML = '<div style="color:#ff4444;font-size:0.8rem;">⚠️ Not authenticated. Please <a href="/login.html" style="color:#00d4ff;">login as CEO</a> first.</div>';
+      aList.innerHTML = '';
+      return;
     }
 
-    // Render approved
-    const aList = document.getElementById('approved-list');
-    if (!d.approved || !d.approved.length) {
-      aList.innerHTML = '<div style="color:#2020a0;font-size:0.8rem;">No approved partners yet.</div>';
+    if (!r.ok) {
+      pList.innerHTML = '<div style="color:#ff4444;font-size:0.8rem;">Error loading partners: ' + r.status + '</div>';
+      return;
+    }
+
+    const d = await r.json();
+    pCount.textContent = d.total_pending || 0;
+    aCount.textContent = d.total_approved || 0;
+
+    // ── Render Pending ──
+    if (!d.pending || !d.pending.length) {
+      pList.innerHTML = '<div style="color:#4040a0;font-size:0.8rem;padding:1rem;border:1px dashed rgba(100,100,180,0.3);border-radius:8px;text-align:center;">No pending applications yet.<br><span style="font-size:0.7rem;color:#2020a0;">Banks register via /partner_login.html</span></div>';
     } else {
-      aList.innerHTML = d.approved.map(p => `
-        <div style="background:#0a0a0f;border:1px solid #1a3a1a;border-radius:10px;padding:1rem;margin-bottom:0.75rem;">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
+      pList.innerHTML = d.pending.map(u => `
+        <div style="background:rgba(255,200,0,0.05);border:1px solid rgba(255,200,0,0.2);border-radius:12px;padding:1rem;margin-bottom:0.75rem;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div>
-              <div style="font-size:0.875rem;font-weight:600;color:#e0e0e0;">${p.name}</div>
-              <div style="font-size:0.75rem;color:#4040a0;">${p.email}</div>
+              <div style="font-weight:700;color:#fff;font-size:0.9rem;">🏦 ${u.name || 'Unknown'}</div>
+              <div style="color:#a0a0b0;font-size:0.75rem;margin-top:2px;">📧 ${u.email}</div>
+              <div style="color:#a0a0b0;font-size:0.75rem;">🔑 UPI: ${u.upi_id}</div>
+              <div style="color:#4040a0;font-size:0.7rem;margin-top:4px;">Registered: ${u.registered_at ? u.registered_at.substring(0,19).replace('T',' ') : 'Unknown'}</div>
             </div>
-            <span style="background:rgba(0,212,100,0.1);color:#00d464;border-radius:20px;padding:3px 10px;font-size:0.7rem;font-weight:700;">Active</span>
+            <button onclick="openIssueModal('${u.email}','${u.name}','')" 
+              style="background:linear-gradient(135deg,#00d4ff,#7b2fff);border:none;border-radius:8px;padding:8px 14px;color:#fff;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+              Issue API Key →
+            </button>
           </div>
         </div>`).join('');
     }
-  } catch(e) {
-    console.error('Failed to load partners:', e);
-  }
-}
 
-function openIssueModal(email, name, org) {
-  document.getElementById('ik-email').value = email;
-  document.getElementById('ik-name').value = name;
-  document.getElementById('ik-org').value = org || '';
-  document.getElementById('issue-result').textContent = '';
-  document.getElementById('issue-modal').style.display = 'flex';
+    // ── Render Approved ──
+    if (!d.approved || !d.approved.length) {
+      aList.innerHTML = '<div style="color:#4040a0;font-size:0.8rem;padding:1rem;border:1px dashed rgba(0,212,100,0.2);border-radius:8px;text-align:center;">No active partners yet.</div>';
+    } else {
+      aList.innerHTML = d.approved.map(u => `
+        <div style="background:rgba(0,212,100,0.05);border:1px solid rgba(0,212,100,0.2);border-radius:12px;padding:1rem;margin-bottom:0.75rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-weight:700;color:#00d464;font-size:0.9rem;">✅ ${u.name || 'Unknown'}</div>
+              <div style="color:#a0a0b0;font-size:0.75rem;margin-top:2px;">📧 ${u.email}</div>
+            </div>
+            <span style="background:rgba(0,212,100,0.15);border:1px solid rgba(0,212,100,0.3);border-radius:20px;padding:4px 12px;color:#00d464;font-size:0.7rem;font-weight:700;">ACTIVE</span>
+          </div>
+        </div>`).join('');
+    }
+
+  } catch(e) {
+    pList.innerHTML = '<div style="color:#ff4444;font-size:0.8rem;">Error: ' + e.message + '</div>';
+  }
 }
 
 async function confirmIssueKey() {
