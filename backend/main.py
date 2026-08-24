@@ -391,10 +391,16 @@ def create_refresh_token(data: dict):
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 async def get_current_user(request: Request):
+    # Try Authorization: Bearer <token> header first
     auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
+    token = None
+    if auth.startswith("Bearer ") and len(auth) > 10:
+        token = auth.split(" ")[1]
+    # Fallback: read HttpOnly cookie (set by login endpoint)
+    if not token:
+        token = request.cookies.get("qp_session")
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    token = auth.split(" ")[1]
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") == "refresh":
