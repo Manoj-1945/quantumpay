@@ -1738,7 +1738,7 @@ async def get_pending_partners(_admin: str = Depends(get_admin_user)):
     pending = []
     approved = []
     for u in all_users:
-        user_dict = {"id": u[0], "name": u[1], "email": u[2], "upi_id": u[3], "registered_at": str(u[4])}
+        user_dict = {"id": u[0], "name": u[1], "upi_id": u[2], "email": u[3], "registered_at": str(u[4])}
         if u[2] in approved_emails or u[3] in approved_emails:
             approved.append(user_dict)
         else:
