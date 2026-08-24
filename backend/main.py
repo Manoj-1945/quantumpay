@@ -1723,7 +1723,7 @@ async def get_my_api_key(current_user: str = Depends(get_current_user)):
 
 # ─── ADMIN: LIST PENDING PARTNERS (registered but no API key yet) ──────────────
 @app.get("/api/admin/pending-partners")
-async def get_pending_partners():
+async def get_pending_partners(_admin: str = Depends(get_admin_user)):
     """Admin sees all users who registered via partner portal but haven't been issued an API key."""
     async with aiosqlite.connect(DB_PATH) as db:
         # Get all non-admin users
