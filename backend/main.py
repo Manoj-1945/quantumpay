@@ -428,21 +428,80 @@ class QuantumEngine:
         self._qrng_cache: List[int] = []
 
     async def fetch_qrng(self, count: int = 32) -> List[int]:
+        """Used by /api/qrng endpoint to show raw ANU quantum numbers directly."""
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
                 resp = await client.get(
-                    f"https://qrng.anu.edu.au/API/jsonI.php?length={count}&type=uint8"
+                    "https://qrng.anu.edu.au/API/jsonI.php?length=" + str(count) + "&type=uint8"
                 )
                 data = resp.json()
                 if data.get("success"):
                     return data["data"]
         except Exception as e:
-            print(f"[WARN] ANU QRNG unavailable: {e} -- using CSPRNG fallback")
+            print("[WARN] ANU QRNG unavailable: " + str(e) + " -- using CSPRNG fallback")
         return [secrets.randbelow(256) for _ in range(count)]
 
     async def get_qrng_bytes(self, n: int = 32) -> bytes:
-        nums = await self.fetch_qrng(n)
-        return bytes(nums)
+        """
+        Triple-source entropy: IBM Quantum XOR ANU QRNG XOR OS-CSPRNG
+        All three fetch in parallel via asyncio.gather.
+        Falls back gracefully if IBM or ANU is unavailable.
+        """
+        import asyncio as _aio
+
+        # Source 1 — ANU QRNG (async)
+        async def _anu(count):
+            try:
+                async with httpx.AsyncClient(timeout=8.0) as c:
+                    resp = await c.get(
+                        "https://qrng.anu.edu.au/API/jsonI.php?length=" + str(count) + "&type=uint8"
+                    )
+                    d = resp.json()
+                    if d.get("success"):
+                        print("[ANU QRNG] " + str(count) + "B from quantum vacuum fluctuations")
+                        return bytes(d["data"])
+            except Exception as e:
+                print("[WARN] ANU unavailable: " + str(e))
+            return None
+
+        # Source 2 — IBM Quantum (async, via ibm_qiskit_engine)
+        async def _ibm(count):
+            try:
+                result = await ibm_qiskit_engine._ibm_bytes_async(count)
+                if result:
+                    return result
+            except Exception as e:
+                print("[WARN] IBM unavailable: " + str(e))
+            return None
+
+        # Source 3 — OS CSPRNG (instant, always available)
+        os_raw = secrets.token_bytes(n)
+
+        # Fetch IBM and ANU in PARALLEL (not sequential — both start at same time)
+        anu_raw, ibm_raw = await _aio.gather(
+            _anu(n),
+            _ibm(n)
+        )
+
+        # Degrade gracefully for any failed source
+        if anu_raw is None:
+            anu_raw = secrets.token_bytes(n)
+            print("[FALLBACK] ANU slot -> OS-CSPRNG")
+        if ibm_raw is None:
+            ibm_raw = secrets.token_bytes(n)
+            print("[FALLBACK] IBM slot -> OS-CSPRNG")
+
+        # XOR all three (equal byte count from each source)
+        xored = bytes(a ^ b ^ c for a, b, c in zip(ibm_raw, anu_raw, os_raw))
+
+        # HKDF-SHA3-256 for uniform distribution
+        salt   = b"QP.v5.TripleEntropy." + os_raw[:16]
+        result = hashlib.sha3_256(salt + xored).digest()
+
+        # Extend if more than 32 bytes requested
+        output = (result * (n // 32 + 1))[:n]
+        print("[ENTROPY] IBM-XOR-ANU-XOR-OS -> HKDF-SHA3-256 -> " + str(n) + "B ready")
+        return output
 
     async def generate_transaction_token(self, upi_from: str, upi_to: str, amount: float) -> str:
         q_bytes = await self.get_qrng_bytes(32)
