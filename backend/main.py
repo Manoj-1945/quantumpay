@@ -557,6 +557,7 @@ ibm_qiskit_engine = IBMQiskitEngine()
 KEY_POOL_TARGET = 500000
 
 async def refill_key_pool():
+    import asyncio as _asyncio
     while True:
         try:
             async with aiosqlite.connect(DB_PATH) as db:
@@ -564,17 +565,15 @@ async def refill_key_pool():
                     available = (await c.fetchone())[0]
                 needed = KEY_POOL_TARGET - available
                 if needed > 0:
-                    # Lower batch size to prevent Railway OOM kill during startup
                     batch = min(needed, 5000)
                     tokens = ibm_qiskit_engine.generate_tokens(batch)
                     await db.executemany("INSERT INTO key_pool (token) VALUES (?)", [(t,) for t in tokens])
                     await db.commit()
-                    # CRITICAL: Yield to the event loop so live traffic and startup healthchecks don't fail!
-                    import asyncio
-                    await asyncio.sleep(0.1)
+                    # Yield to event loop so health checks don't fail
+                    await _asyncio.sleep(0.1)
         except Exception as e:
             print(f"[WARN] Key pool refill error: {e}")
-        await asyncio.sleep(30)
+        await _asyncio.sleep(30)
 
 # ─── STARTUP ──────────────────────────────────────────────────────────────────
 @app.on_event("startup")
@@ -1538,7 +1537,21 @@ async def verify_token(req: VerifyTokenRequest, request: Request):
             "message": "Token EXPIRED — not valid for settlement." if is_expired else "Token verified authentic against quantum security ledger."}
 
 @app.get("/api/v1/b2b/metrics")
-async def get_b2b_metrics(admin: str = Depends(get_admin_user)):
+async def get_b2b_metrics(request: Request, x_api_key: str = Header(None)):
+    # Allow CEO admin OR valid partner API key
+    is_admin = False
+    try:
+        await get_admin_user(request)
+        is_admin = True
+    except Exception:
+        pass
+    if not is_admin:
+        if not x_api_key or not x_api_key.startswith("qp.b2b.v5."):
+            raise HTTPException(status_code=403, detail="Provide admin session or valid API key")
+        async with aiosqlite.connect(DB_PATH) as db:
+            async with db.execute("SELECT id FROM b2b_partners WHERE api_key=? AND is_active=1", (x_api_key,)) as cur:
+                if not await cur.fetchone():
+                    raise HTTPException(status_code=403, detail="Invalid or inactive API key")
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT COUNT(*) FROM b2b_transactions") as c1: total_tx = (await c1.fetchone())[0]
         async with db.execute("SELECT COUNT(*) FROM b2b_partners WHERE is_active=1") as c2: total_partners = (await c2.fetchone())[0]
