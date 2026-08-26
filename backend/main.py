@@ -2039,6 +2039,50 @@ async def issue_partner_key(req: IssueKeyRequest, _admin: str = Depends(get_admi
 # FastAPI API routes defined above always take priority over static files.
 # The Dockerfile already copies all files via COPY . . so they exist in /app.
 
+@app.get("/api/admin/ibm-pool-status")
+async def ibm_pool_status_endpoint(_admin: str = Depends(get_admin_user)):
+    """Show IBM entropy pool status: how many chunks available this month."""
+    from datetime import datetime as _dt
+    current_month = _dt.utcnow().strftime("%Y-%m")
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM ibm_entropy_pool WHERE used=0 AND harvest_month=?",
+            (current_month,)
+        ) as c:
+            available = (await c.fetchone())[0]
+        async with db.execute(
+            "SELECT COUNT(*) FROM ibm_entropy_pool WHERE used=1 AND harvest_month=?",
+            (current_month,)
+        ) as c:
+            consumed = (await c.fetchone())[0]
+    return {
+        "current_month": current_month,
+        "ibm_pool_available": available,
+        "ibm_pool_consumed": consumed,
+        "ibm_pool_total": available + consumed,
+        "monthly_target": ibm_qiskit_engine.monthly_target,
+        "pool_health_pct": round((available / max(ibm_qiskit_engine.monthly_target, 1)) * 100, 1),
+        "ibm_token_configured": bool(ibm_qiskit_engine.ibm_token),
+        "entropy_status": ibm_qiskit_engine.get_entropy_status(),
+        "note": "IBM bytes harvested once per month (~300 chunks/10min budget). Each payment draws one chunk and marks it consumed."
+    }
+
+@app.post("/api/admin/ibm-harvest-now")
+async def ibm_harvest_now_endpoint(_admin: str = Depends(get_admin_user)):
+    """Manually trigger IBM monthly entropy harvest (use after adding IBM_QUANTUM_TOKEN env var)."""
+    if not ibm_qiskit_engine.ibm_token:
+        raise HTTPException(
+            status_code=400,
+            detail="IBM_QUANTUM_TOKEN not set. Add it in Railway Environment Variables."
+        )
+    import asyncio as _aio
+    _aio.create_task(ibm_qiskit_engine.run_monthly_harvest())
+    return {
+        "success": True,
+        "message": "IBM harvest started in background. Check Railway logs for [IBM POOL] progress.",
+        "monthly_target": ibm_qiskit_engine.monthly_target
+    }
+
 @app.post("/api/admin/verify-shards")
 async def verify_key_shards(request: Request, _admin: str = Depends(get_admin_user)):
     """
