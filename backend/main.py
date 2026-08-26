@@ -452,24 +452,25 @@ class QuantumEngine:
     async def get_qrng_bytes(self, n: int = 32) -> bytes:
         """
         Instant Zero-Latency Token Retrieval:
-        Draws from pre-generated 500,000 triple-mixed key pool in DB (<2ms).
-        Falls back to local hardware CSPRNG instantly if pool is refilling.
+        Draws from pre-generated 500,000 triple-mixed key pool in PostgreSQL DB (<2ms).
+        Falls back to local hardware CSPRNG instantly if pool is empty or refilling.
         """
         try:
-            async with aiosqlite.connect(DB_PATH) as db:
-                async with db.execute(
-                    "SELECT id, token FROM key_pool WHERE status='AVAILABLE' LIMIT 1"
-                ) as c:
-                    row = await c.fetchone()
-                if row:
-                    await db.execute("UPDATE key_pool SET status='CONSUMED' WHERE id=?", (row[0],))
-                    await db.commit()
-                    token_bytes = bytes.fromhex(row[1])
-                    return (token_bytes * (n // 32 + 1))[:n]
+            if db_pool:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow(
+                        "SELECT id, token FROM key_pool WHERE status='AVAILABLE' LIMIT 1"
+                    )
+                    if row:
+                        await conn.execute(
+                            "UPDATE key_pool SET status='CONSUMED' WHERE id=$1", row["id"]
+                        )
+                        token_bytes = bytes.fromhex(row["token"])
+                        return (token_bytes * (n // 32 + 1))[:n]
         except Exception as e:
-            print("[WARN] Instant pool draw fallback: " + str(e))
-        
-        # Zero-latency local fallback
+            print("[WARN] Pool draw error, using CSPRNG fallback: " + str(e))
+
+        # Zero-latency local fallback (CSPRNG — still cryptographically secure)
         return secrets.token_bytes(n)
 
     async def generate_transaction_token(self, upi_from: str, upi_to: str, amount: float) -> str:
@@ -702,12 +703,11 @@ class IBMQiskitEngine:
             chunk = await self._ibm_harvest_chunk(access_token)
             if chunk is None:
                 break
-            async with aiosqlite.connect(DB_PATH) as db:
-                await db.execute(
-                    "INSERT INTO ibm_entropy_pool (entropy_hex, used, harvest_month) VALUES (?,0,?)",
-                    (chunk.hex(), current_month)
+            async with db_pool.acquire() as _ins:
+                await _ins.execute(
+                    "INSERT INTO ibm_entropy_pool (entropy_hex, used, harvest_month) VALUES ($1, 0, $2)",
+                    chunk.hex(), current_month
                 )
-                await db.commit()
             harvested += 1
             await _aio.sleep(0.1)
         print("[IBM POOL] Monthly harvest complete: " + str(harvested) + " chunks added to DB pool")
@@ -781,19 +781,24 @@ async def refill_key_pool():
     import asyncio as _asyncio
     while True:
         try:
-            async with aiosqlite.connect(DB_PATH) as db:
-                async with db.execute("SELECT COUNT(*) FROM key_pool WHERE status='AVAILABLE'") as c:
-                    available = (await c.fetchone())[0]
+            if not db_pool:
+                await _asyncio.sleep(10)
+                continue
+            async with db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT COUNT(*) FROM key_pool WHERE status='AVAILABLE'")
+                available = row[0]
                 needed = KEY_POOL_TARGET - available
                 if needed > 0:
                     batch = min(needed, 5000)
                     tokens = ibm_qiskit_engine.generate_tokens(batch)
-                    await db.executemany("INSERT INTO key_pool (token) VALUES (?)", [(t,) for t in tokens])
-                    await db.commit()
-                    # Yield to event loop so health checks don't fail
+                    await conn.executemany(
+                        "INSERT INTO key_pool (token) VALUES ($1)",
+                        [(t,) for t in tokens]
+                    )
+                    print("[KEY POOL] Refilled " + str(batch) + " tokens | Total available: " + str(available + batch))
                     await _asyncio.sleep(0.1)
         except Exception as e:
-            print(f"[WARN] Key pool refill error: {e}")
+            print("[WARN] Key pool refill error: " + str(e))
         await _asyncio.sleep(30)
 
 # ─── STARTUP ──────────────────────────────────────────────────────────────────
@@ -2045,17 +2050,19 @@ async def ibm_pool_status_endpoint(_admin: str = Depends(get_admin_user)):
     """Show IBM entropy pool status: how many chunks available this month."""
     from datetime import datetime as _dt
     current_month = _dt.utcnow().strftime("%Y-%m")
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(
-            "SELECT COUNT(*) FROM ibm_entropy_pool WHERE used=0 AND harvest_month=?",
-            (current_month,)
-        ) as c:
-            available = (await c.fetchone())[0]
-        async with db.execute(
-            "SELECT COUNT(*) FROM ibm_entropy_pool WHERE used=1 AND harvest_month=?",
-            (current_month,)
-        ) as c:
-            consumed = (await c.fetchone())[0]
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Database not ready")
+    async with db_pool.acquire() as conn:
+        row_avail = await conn.fetchrow(
+            "SELECT COUNT(*) FROM ibm_entropy_pool WHERE used=0 AND harvest_month=$1",
+            current_month
+        )
+        available = row_avail[0]
+        row_used = await conn.fetchrow(
+            "SELECT COUNT(*) FROM ibm_entropy_pool WHERE used=1 AND harvest_month=$1",
+            current_month
+        )
+        consumed = row_used[0]
     return {
         "current_month": current_month,
         "ibm_pool_available": available,
