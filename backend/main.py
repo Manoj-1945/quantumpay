@@ -674,11 +674,14 @@ class IBMQiskitEngine:
         from datetime import datetime as _dt
         import asyncio as _aio
         current_month = _dt.utcnow().strftime("%Y-%m")
-        async with aiosqlite.connect(DB_PATH) as db:
-            async with db.execute(
-                "SELECT COUNT(*) FROM ibm_entropy_pool WHERE harvest_month=?", (current_month,)
-            ) as c:
-                existing = (await c.fetchone())[0]
+        if not db_pool:
+            print("[IBM POOL] DB not ready — skipping harvest check")
+            return 0
+        async with db_pool.acquire() as _chk_conn:
+            _chk_row = await _chk_conn.fetchrow(
+                "SELECT COUNT(*) FROM ibm_entropy_pool WHERE harvest_month=$1", current_month
+            )
+            existing = _chk_row[0]
         if existing >= self.monthly_target:
             print("[IBM POOL] Current month " + current_month + " already harvested: " + str(existing) + " chunks")
             return existing
@@ -1366,18 +1369,30 @@ async def broadcast_ledger(req: LedgerBroadcastRequest, admin: str = Depends(get
 
 @app.get("/api/admin/stats")
 async def admin_stats(admin: str = Depends(get_admin_user)):
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT COUNT(*) FROM users") as c: users = (await c.fetchone())[0]
-        async with db.execute("SELECT COUNT(*) FROM transactions") as c: txs = (await c.fetchone())[0]
-        async with db.execute("SELECT SUM(amount) FROM transactions WHERE status='success'") as c: vol = (await c.fetchone())[0] or 0
-        async with db.execute("SELECT COUNT(*) FROM audit_blocks") as c: blocks = (await c.fetchone())[0]
-        async with db.execute("SELECT COUNT(*) FROM behavior_log WHERE anomaly_score > 60") as c: anomalies = (await c.fetchone())[0]
-        async with db.execute("SELECT COUNT(*) FROM threat_log WHERE blocked=1") as c: blocked = (await c.fetchone())[0]
-        async with db.execute("SELECT created_at, COUNT(*) FROM transactions GROUP BY DATE(created_at) ORDER BY created_at DESC LIMIT 7") as c:
-            daily = [{"date": r[0].isoformat()[:10] if hasattr(r[0], "isoformat") else r[0][:10], "count": r[1]} for r in await c.fetchall()]
-    return {"users": {"total": users}, "transactions": {"total": txs, "volume": round(vol, 2)},
-            "security": {"audit_blocks": blocks, "anomalies": anomalies, "attacks_blocked": blocked},
-            "daily_transactions": daily, "uptime": "99.97%"}
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Database not ready")
+    async with db_pool.acquire() as conn:
+        users     = (await conn.fetchrow("SELECT COUNT(*) FROM users"))[0]
+        txs       = (await conn.fetchrow("SELECT COUNT(*) FROM transactions"))[0]
+        vol_row   = await conn.fetchrow("SELECT SUM(amount) FROM transactions WHERE status='success'")
+        vol       = float(vol_row[0] or 0)
+        blocks    = (await conn.fetchrow("SELECT COUNT(*) FROM audit_blocks"))[0]
+        anomalies = (await conn.fetchrow("SELECT COUNT(*) FROM behavior_log WHERE anomaly_score > 60"))[0]
+        blocked   = (await conn.fetchrow("SELECT COUNT(*) FROM threat_log WHERE blocked=1"))[0]
+        pool_row  = await conn.fetchrow("SELECT COUNT(*) FROM key_pool WHERE status='AVAILABLE'")
+        ready_keys = pool_row[0]
+        daily_rows = await conn.fetch(
+            "SELECT DATE(created_at) as d, COUNT(*) as c FROM transactions GROUP BY DATE(created_at) ORDER BY d DESC LIMIT 7"
+        )
+        daily = [{"date": str(r["d"]), "count": r["c"]} for r in daily_rows]
+    return {
+        "users": {"total": users},
+        "transactions": {"total": txs, "volume": round(vol, 2)},
+        "security": {"audit_blocks": blocks, "anomalies": anomalies, "attacks_blocked": blocked},
+        "key_pool": {"ready": ready_keys, "target": KEY_POOL_TARGET},
+        "daily_transactions": daily,
+        "uptime": "99.97%"
+    }
 
 @app.get("/api/admin/users")
 async def admin_users(limit: int = 50, offset: int = 0, admin: str = Depends(get_admin_user)):
