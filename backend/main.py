@@ -562,6 +562,8 @@ class BehavioralAnalytics:
 
 behavior_engine = BehavioralAnalytics()
 
+KEY_POOL_TARGET = 500000
+
 # ─── QUANTUM ENTROPY ENGINE v3 (500,000-Pool Architecture) ───────────────────
 _SHAMIR_PRIME = (1 << 256) - 189
 
@@ -771,10 +773,9 @@ class IBMQiskitEngine:
 ibm_qiskit_engine = IBMQiskitEngine()
 _IBM_STATUS = "WIRED" if os.environ.get("IBM_QUANTUM_TOKEN") else "NO_TOKEN"
 print("[QUANTUM POOL ENGINE v3] IBM: " + _IBM_STATUS + " | ANU: Batch | OS: Hardware")
-print("[QUANTUM POOL ENGINE v3] Target Pool: " + str(KEY_POOL_TARGET) + " tokens | Instant payment execution (<2ms)")
+print("[QUANTUM POOL ENGINE v3] Pool target: 500000 tokens | Instant payment execution (<2ms)")
 
 # ─── KEY POOL BACKGROUND REFILL ───────────────────────────────────────────────
-KEY_POOL_TARGET = 500000
 
 async def refill_key_pool():
     import asyncio as _asyncio
