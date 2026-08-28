@@ -623,12 +623,17 @@ class IBMQiskitEngine:
             ] + ["h q[" + str(qi) + "];" for qi in range(127)]               + ["measure q[" + str(qi) + "] -> c[" + str(qi) + "];" for qi in range(127)]
             qasm = "\n".join(qasm_lines)
 
-            async with httpx.AsyncClient(timeout=20.0) as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                # IBM Quantum 2024+ API endpoint
                 job_resp = await client.post(
-                    "https://runtime-us-east.quantum-computing.ibm.com/jobs",
-                    headers={"Authorization": "Bearer " + access_token, "Content-Type": "application/json"},
-                    json={"program_id": "sampler", "backend": "ibmq_qasm_simulator",
-                          "params": {"circuits": [qasm], "shots": 2}}
+                    "https://api.quantum.ibm.com/v1/jobs",
+                    headers={"Authorization": "Bearer " + access_token,
+                             "Content-Type": "application/json",
+                             "Service-CRN": ""},
+                    json={"program_id": "sampler",
+                          "backend": "simulator_statevector",
+                          "hub": "ibm-q", "group": "open", "project": "main",
+                          "params": {"circuits": [qasm], "shots": 1}}
                 )
                 if job_resp.status_code not in [200, 201]:
                     return None
@@ -640,7 +645,7 @@ class IBMQiskitEngine:
                 for _ in range(15):
                     await _aio.sleep(1)
                     res = await client.get(
-                        "https://runtime-us-east.quantum-computing.ibm.com/jobs/" + job_id + "/results",
+                        "https://api.quantum.ibm.com/v1/jobs/" + job_id + "/results",
                         headers={"Authorization": "Bearer " + access_token}
                     )
                     if res.status_code == 200:
@@ -689,21 +694,27 @@ class IBMQiskitEngine:
         print("[IBM POOL] Starting monthly harvest for " + current_month + " (Target: " + str(self.monthly_target) + " chunks)")
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                auth_resp = await client.post(
-                    "https://auth.quantum-computing.ibm.com/api/users/loginWithToken",
-                    json={"apiToken": self.ibm_token}
+                # IBM Quantum 2024+ uses IBM Cloud IAM for authentication
+                iam_resp = await client.post(
+                    "https://iam.cloud.ibm.com/identity/token",
+                    data={
+                        "grant_type": "urn:ibm:params:oauth:grant-type:apikey",
+                        "apikey": self.ibm_token
+                    },
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
                 )
-                print("[IBM POOL] Auth response status: " + str(auth_resp.status_code))
-                if auth_resp.status_code != 200:
-                    print("[IBM POOL] Auth failed body: " + auth_resp.text[:200])
+                print("[IBM POOL] IAM auth status: " + str(iam_resp.status_code))
+                if iam_resp.status_code != 200:
+                    print("[IBM POOL] IAM auth failed: " + iam_resp.text[:300])
+                    print("[IBM POOL] Check IBM_QUANTUM_TOKEN in Railway env vars. Get token from: https://quantum.ibm.com/account")
                     return existing
-                access_token = auth_resp.json().get("id", "")
+                access_token = iam_resp.json().get("access_token", "")
                 if not access_token:
-                    print("[IBM POOL] Auth succeeded but no access token in response: " + str(auth_resp.json().keys()))
+                    print("[IBM POOL] IAM OK but no access_token: " + str(list(iam_resp.json().keys())))
                     return existing
-                print("[IBM POOL] Auth OK, access token obtained, starting circuit jobs...")
+                print("[IBM POOL] IAM auth OK, starting 127-qubit Hadamard circuit jobs...")
         except Exception as e:
-            print("[IBM POOL] Auth exception: " + str(e))
+            print("[IBM POOL] IAM auth exception: " + str(e))
             return existing
 
         harvested = 0
