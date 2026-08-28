@@ -624,15 +624,12 @@ class IBMQiskitEngine:
             qasm = "\n".join(qasm_lines)
 
             async with httpx.AsyncClient(timeout=30.0) as client:
-                # IBM Quantum Open Plan runtime (works with quantum.ibm.com token)
                 job_resp = await client.post(
-                    "https://runtime-us-east.quantum-computing.ibm.com/jobs",
-                    headers={"Authorization": "Bearer " + access_token,
-                             "Content-Type": "application/json"},
-                    json={"program_id": "sampler",
-                          "backend": "ibmq_qasm_simulator",
+                    "https://api.quantum.ibm.com/v1/jobs",
+                    headers={"Authorization": "Bearer " + access_token, "Content-Type": "application/json"},
+                    json={"program_id": "sampler", "backend": "simulator_statevector",
                           "hub": "ibm-q", "group": "open", "project": "main",
-                          "params": {"circuits": [qasm], "shots": 2}}
+                          "params": {"circuits": [qasm], "shots": 1}}
                 )
                 if job_resp.status_code not in [200, 201]:
                     return None
@@ -696,20 +693,16 @@ class IBMQiskitEngine:
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 auth_resp = await client.post(
-                    "https://auth.quantum-computing.ibm.com/api/users/loginWithToken",
-                    json={"apiToken": self.ibm_token}
+                    "https://iam.cloud.ibm.com/identity/token",
+                    data={"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": self.ibm_token, "response_type": "cloud_iam"},
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
                 )
-                print("[IBM POOL] Auth status: " + str(auth_resp.status_code))
+                print("[IBM POOL] IAM Auth status: " + str(auth_resp.status_code))
                 if auth_resp.status_code != 200:
-                    print("[IBM POOL] Auth failed: " + auth_resp.text[:300])
-                    print("[IBM POOL] Get your token at: https://quantum.ibm.com/account -> Copy token")
+                    print("[IBM POOL] IAM Auth failed: " + auth_resp.text[:300])
+                    print("[IBM POOL] IMPORTANT: Old IBM Quantum tokens are invalid. You MUST get a new IBM Cloud API Key from https://cloud.ibm.com/iam/apikeys")
                 else:
-                    access_token = auth_resp.json().get("id", "")
-                    if not access_token:
-                        all_keys = list(auth_resp.json().keys())
-                        print("[IBM POOL] Auth OK but no id field. Keys: " + str(all_keys))
-                        access_token = auth_resp.json().get("access_token", "") or auth_resp.json().get("token", "")
-                    
+                    access_token = auth_resp.json().get("access_token", "")
                     if access_token:
                         print("[IBM POOL] Auth OK — token obtained. Starting 127-qubit Hadamard harvest...")
                         for i in range(self.monthly_target):
