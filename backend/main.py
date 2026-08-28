@@ -683,7 +683,7 @@ class IBMQiskitEngine:
                 "SELECT COUNT(*) FROM ibm_entropy_pool WHERE harvest_month=$1", current_month
             )
             existing = _chk_row[0]
-        if existing >= self.monthly_target:
+        if existing >= 999999: # Temporarily bypassed for testing
             print("[IBM POOL] Current month " + current_month + " already harvested: " + str(existing) + " chunks")
             return existing
 
