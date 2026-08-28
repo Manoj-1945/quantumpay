@@ -328,8 +328,7 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        await db_pool.execute("DELETE FROM ibm_entropy_pool")
-    print("[OK] PostgreSQL Database initialized — QuantumPay v5.2")
+        print("[OK] PostgreSQL Database initialized — QuantumPay v5.2")
 
 # ─── MODELS ──────────────────────────────────────────────────────────────────
 class RegisterRequest(BaseModel):
