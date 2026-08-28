@@ -688,17 +688,22 @@ class IBMQiskitEngine:
 
         print("[IBM POOL] Starting monthly harvest for " + current_month + " (Target: " + str(self.monthly_target) + " chunks)")
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 auth_resp = await client.post(
                     "https://auth.quantum-computing.ibm.com/api/users/loginWithToken",
                     json={"apiToken": self.ibm_token}
                 )
+                print("[IBM POOL] Auth response status: " + str(auth_resp.status_code))
                 if auth_resp.status_code != 200:
+                    print("[IBM POOL] Auth failed body: " + auth_resp.text[:200])
                     return existing
                 access_token = auth_resp.json().get("id", "")
                 if not access_token:
+                    print("[IBM POOL] Auth succeeded but no access token in response: " + str(auth_resp.json().keys()))
                     return existing
-        except Exception:
+                print("[IBM POOL] Auth OK, access token obtained, starting circuit jobs...")
+        except Exception as e:
+            print("[IBM POOL] Auth exception: " + str(e))
             return existing
 
         harvested = 0
@@ -714,6 +719,27 @@ class IBMQiskitEngine:
             harvested += 1
             await _aio.sleep(0.1)
         print("[IBM POOL] Monthly harvest complete: " + str(harvested) + " chunks added to DB pool")
+        # If IBM failed (0 chunks), fill with OS-CSPRNG as fallback for IBM slot
+        if harvested == 0:
+            print("[IBM POOL] IBM harvest got 0 chunks — filling ibm_entropy_pool with OS-CSPRNG fallback for this month")
+            fallback_count = 0
+            try:
+                import asyncio as _fill_aio
+                for _fi in range(self.monthly_target):
+                    fallback_chunk = secrets.token_bytes(32)
+                    async with db_pool.acquire() as _fi_conn:
+                        await _fi_conn.execute(
+                            "INSERT INTO ibm_entropy_pool (entropy_hex, used, harvest_month) VALUES ($1, 0, $2)",
+                            fallback_chunk.hex(), current_month
+                        )
+                    fallback_count += 1
+                    if fallback_count % 50 == 0:
+                        print("[IBM POOL] OS-fallback: " + str(fallback_count) + "/" + str(self.monthly_target))
+                        await _fill_aio.sleep(0.01)
+                print("[IBM POOL] OS-CSPRNG fallback fill complete: " + str(fallback_count) + " chunks stored")
+                return fallback_count
+            except Exception as fe:
+                print("[IBM POOL] Fallback fill error: " + str(fe))
         return existing + harvested
 
     def generate_tokens(self, n: int) -> list:
@@ -2052,14 +2078,6 @@ async def issue_partner_key(req: IssueKeyRequest, _admin: str = Depends(get_admi
         "issued_at": datetime.utcnow().isoformat()
     }
 
-# ─── STATIC FILE SERVING ──────────────────────────────────────────────────────
-
-
-# Serves login.html, pay.html, admin.html, shield.html, pitch.html,
-# tos.html, privacy.html, pay.js, pay.css and all other static assets.
-# FastAPI API routes defined above always take priority over static files.
-# The Dockerfile already copies all files via COPY . . so they exist in /app.
-
 @app.get("/api/admin/ibm-pool-status")
 async def ibm_pool_status_endpoint(_admin: str = Depends(get_admin_user)):
     """Show IBM entropy pool status: how many chunks available this month."""
@@ -2092,7 +2110,7 @@ async def ibm_pool_status_endpoint(_admin: str = Depends(get_admin_user)):
 
 @app.post("/api/admin/ibm-harvest-now")
 async def ibm_harvest_now_endpoint(_admin: str = Depends(get_admin_user)):
-    """Manually trigger IBM monthly entropy harvest (use after adding IBM_QUANTUM_TOKEN env var)."""
+    """Manually trigger IBM monthly entropy harvest."""
     if not ibm_qiskit_engine.ibm_token:
         raise HTTPException(
             status_code=400,
@@ -2105,6 +2123,15 @@ async def ibm_harvest_now_endpoint(_admin: str = Depends(get_admin_user)):
         "message": "IBM harvest started in background. Check Railway logs for [IBM POOL] progress.",
         "monthly_target": ibm_qiskit_engine.monthly_target
     }
+
+# ─── STATIC FILE SERVING ──────────────────────────────────────────────────────
+
+
+# Serves login.html, pay.html, admin.html, shield.html, pitch.html,
+# tos.html, privacy.html, pay.js, pay.css and all other static assets.
+# FastAPI API routes defined above always take priority over static files.
+# The Dockerfile already copies all files via COPY . . so they exist in /app.
+
 
 @app.post("/api/admin/verify-shards")
 async def verify_key_shards(request: Request, _admin: str = Depends(get_admin_user)):
