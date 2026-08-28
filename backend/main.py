@@ -691,10 +691,10 @@ class IBMQiskitEngine:
             return existing
 
         print("[IBM POOL] Starting monthly harvest for " + current_month + " (Target: " + str(self.monthly_target) + " chunks)")
+        
+        harvested = 0
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                # IBM Quantum Open Plan token (from quantum.ibm.com) uses this endpoint
-                # NO instance creation needed — just the API token from your quantum.ibm.com profile
                 auth_resp = await client.post(
                     "https://auth.quantum-computing.ibm.com/api/users/loginWithToken",
                     json={"apiToken": self.ibm_token}
@@ -703,40 +703,43 @@ class IBMQiskitEngine:
                 if auth_resp.status_code != 200:
                     print("[IBM POOL] Auth failed: " + auth_resp.text[:300])
                     print("[IBM POOL] Get your token at: https://quantum.ibm.com/account -> Copy token")
-                    return existing
-                access_token = auth_resp.json().get("id", "")
-                if not access_token:
-                    all_keys = list(auth_resp.json().keys())
-                    print("[IBM POOL] Auth OK but no id field. Keys: " + str(all_keys))
-                    # Try alternate field names
-                    access_token = auth_resp.json().get("access_token", "") or auth_resp.json().get("token", "")
+                else:
+                    access_token = auth_resp.json().get("id", "")
                     if not access_token:
-                        return existing
-                print("[IBM POOL] Auth OK — token obtained. Starting 127-qubit Hadamard harvest...")
+                        all_keys = list(auth_resp.json().keys())
+                        print("[IBM POOL] Auth OK but no id field. Keys: " + str(all_keys))
+                        access_token = auth_resp.json().get("access_token", "") or auth_resp.json().get("token", "")
+                    
+                    if access_token:
+                        print("[IBM POOL] Auth OK — token obtained. Starting 127-qubit Hadamard harvest...")
+                        for i in range(self.monthly_target):
+                            try:
+                                chunk = await self._ibm_harvest_chunk(access_token)
+                                async with db_pool.acquire() as conn:
+                                    await conn.execute(
+                                        "INSERT INTO ibm_entropy_pool (entropy_hex, used, harvest_month) VALUES ($1, 0, $2)",
+                                        chunk.hex(), current_month
+                                    )
+                                harvested += 1
+                                if harvested % 50 == 0:
+                                    print("[IBM POOL] Harvested " + str(harvested) + "/" + str(self.monthly_target) + " chunks...")
+                            except Exception as e:
+                                print(f"[IBM POOL] Error harvesting chunk {i}: {str(e)}")
+                                break
         except Exception as e:
             print("[IBM POOL] Auth exception: " + str(e))
-            return existing
+            # Fallback will handle this below!
 
-        harvested = 0
-        for i in range(self.monthly_target - existing):
-            chunk = await self._ibm_harvest_chunk(access_token)
-            if chunk is None:
-                break
-            async with db_pool.acquire() as _ins:
-                await _ins.execute(
-                    "INSERT INTO ibm_entropy_pool (entropy_hex, used, harvest_month) VALUES ($1, 0, $2)",
-                    chunk.hex(), current_month
-                )
-            harvested += 1
-            await _aio.sleep(0.1)
         print("[IBM POOL] Monthly harvest complete: " + str(harvested) + " chunks added to DB pool")
-        # If IBM failed (0 chunks), fill with OS-CSPRNG as fallback for IBM slot
-        if harvested == 0:
-            print("[IBM POOL] IBM harvest got 0 chunks — filling ibm_entropy_pool with OS-CSPRNG fallback for this month")
+        
+        if harvested < self.monthly_target:
+            needed = self.monthly_target - harvested
+            print(f"[IBM POOL] IBM harvest got {harvested} chunks — filling remaining {needed} with OS-CSPRNG fallback")
             fallback_count = 0
             try:
                 import asyncio as _fill_aio
-                for _fi in range(self.monthly_target):
+                import secrets
+                for _fi in range(needed):
                     fallback_chunk = secrets.token_bytes(32)
                     async with db_pool.acquire() as _fi_conn:
                         await _fi_conn.execute(
@@ -745,14 +748,14 @@ class IBMQiskitEngine:
                         )
                     fallback_count += 1
                     if fallback_count % 50 == 0:
-                        print("[IBM POOL] OS-fallback: " + str(fallback_count) + "/" + str(self.monthly_target))
+                        print(f"[IBM POOL] OS-fallback: {fallback_count}/{needed}")
                         await _fill_aio.sleep(0.01)
                 print("[IBM POOL] OS-CSPRNG fallback fill complete: " + str(fallback_count) + " chunks stored")
-                return fallback_count
+                harvested += fallback_count
             except Exception as fe:
                 print("[IBM POOL] Fallback fill error: " + str(fe))
+                
         return existing + harvested
-
     def generate_tokens(self, n: int) -> list:
         """
         Generates n tokens for key_pool by mixing ANU QRNG + IBM Harvest Pool + OS CSPRNG.
@@ -1467,59 +1470,52 @@ async def admin_transactions(limit: int = 50, admin: str = Depends(get_admin_use
 @app.get("/api/admin/partners/stats")
 async def admin_partner_stats(admin: str = Depends(get_admin_user)):
     """Returns per-partner stats: API calls, estimated revenue, SLA, status."""
-    if not db_pool: return []
-    async with db_pool.acquire() as conn:
-        partners = await conn.fetch(
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
             "SELECT id, partner_name, api_key, webhook_url, is_active, created_at FROM b2b_partners ORDER BY created_at DESC"
-        )
+        ) as c:
+            partners = await c.fetchall()
+
         result = []
         for p in partners:
-            pid = p['id']
-            api_calls_row = await conn.fetchrow(
-                "SELECT COUNT(*) FROM audit_blocks WHERE actor=$1 AND action='ISO20022_CONVERTED'", pid
-            )
-            api_calls = api_calls_row[0] if api_calls_row else 0
-            api_key = p['api_key']
+            pid, name, api_key, webhook, active, created = p
+            # Count ISO-20022 conversions for this partner via audit log
+            async with db.execute(
+                "SELECT COUNT(*) FROM audit_blocks WHERE actor=? AND action='ISO20022_CONVERTED'", (pid,)
+            ) as c2:
+                api_calls = (await c2.fetchone())[0]
+            # Revenue estimate: ₹2 per API call (basic pricing model)
             revenue = api_calls * 2
             result.append({
                 "id": pid,
-                "name": p['partner_name'],
+                "name": name,
                 "api_key_masked": f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "****",
-                "webhook": p['webhook_url'],
-                "is_active": bool(p['is_active']),
+                "webhook": webhook,
+                "is_active": bool(active),
                 "api_calls_total": api_calls,
                 "revenue_inr": revenue,
                 "sla_ms": 51,
                 "plan": "Enterprise" if api_calls > 1000 else "Starter",
-                "created_at": str(p['created_at'])
+                "created_at": created
             })
     return result
 
 @app.post("/api/admin/partners/{partner_id}/revoke")
 async def revoke_partner(partner_id: str, admin: str = Depends(get_admin_user)):
     """Revoke a B2B partner's API access instantly."""
-    async with db_pool.acquire() as conn:
-        await conn.execute("UPDATE b2b_partners SET is_active=0 WHERE id=$1", partner_id)
-        # Using a direct insert for audit to avoid aiosqlite shim issues
-        import uuid as _uuid
-        from datetime import datetime as _dt
-        await conn.execute(
-            "INSERT INTO audit_blocks (id, actor, action, details, timestamp) VALUES ($1, $2, $3, $4, $5)",
-            str(_uuid.uuid4()), admin, "PARTNER_REVOKED", str({"partner_id": partner_id}), _dt.utcnow()
-        )
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE b2b_partners SET is_active=0 WHERE id=?", (partner_id,))
+        await db.commit()
+        await write_audit_block(db, admin, "PARTNER_REVOKED", {"partner_id": partner_id})
     return {"success": True, "message": "Partner API access revoked."}
 
 @app.post("/api/admin/partners/{partner_id}/activate")
 async def activate_partner(partner_id: str, admin: str = Depends(get_admin_user)):
     """Reactivate a B2B partner's API access."""
-    async with db_pool.acquire() as conn:
-        await conn.execute("UPDATE b2b_partners SET is_active=1 WHERE id=$1", partner_id)
-        import uuid as _uuid
-        from datetime import datetime as _dt
-        await conn.execute(
-            "INSERT INTO audit_blocks (id, actor, action, details, timestamp) VALUES ($1, $2, $3, $4, $5)",
-            str(_uuid.uuid4()), admin, "PARTNER_ACTIVATED", str({"partner_id": partner_id}), _dt.utcnow()
-        )
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE b2b_partners SET is_active=1 WHERE id=?", (partner_id,))
+        await db.commit()
+        await write_audit_block(db, admin, "PARTNER_ACTIVATED", {"partner_id": partner_id})
     return {"success": True, "message": "Partner API access activated."}
 
 @app.get("/api/admin/revenue")
@@ -2026,24 +2022,21 @@ async def get_my_api_key(current_user: str = Depends(get_current_user)):
 @app.get("/api/admin/pending-partners")
 async def get_pending_partners(_admin: str = Depends(get_admin_user)):
     """Admin sees all users who registered via partner portal but haven't been issued an API key."""
-    if not db_pool:
-        raise HTTPException(status_code=503, detail="DB not ready")
-    
-    async with db_pool.acquire() as conn:
-        all_users = await conn.fetch(
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Get all non-admin users
+        async with db.execute(
             "SELECT id, name, upi_id, email, created_at FROM users WHERE is_admin=0 ORDER BY created_at DESC"
-        )
-        approved_rows = await conn.fetch("SELECT contact_email FROM b2b_partners")
-        approved_emails = {row['contact_email'] for row in approved_rows if row['contact_email']}
+        ) as c:
+            all_users = await c.fetchall()
+        # Get all emails that already have an API key
+        async with db.execute("SELECT contact_email FROM b2b_partners") as c:
+            approved_emails = {row[0] for row in await c.fetchall()}
 
     pending = []
     approved = []
     for u in all_users:
-        user_dict = {
-            "id": u['id'], "name": u['name'], "upi_id": u['upi_id'], 
-            "email": u['email'], "registered_at": str(u['created_at'])
-        }
-        if u['upi_id'] in approved_emails or u['email'] in approved_emails:
+        user_dict = {"id": u[0], "name": u[1], "upi_id": u[2], "email": u[3], "registered_at": str(u[4])}
+        if u[2] in approved_emails or u[3] in approved_emails:
             approved.append(user_dict)
         else:
             pending.append(user_dict)
@@ -2073,15 +2066,15 @@ async def issue_partner_key(req: IssueKeyRequest, _admin: str = Depends(get_admi
     call_limit = plan_limits.get(req.plan.lower(), 10000)
 
     try:
-        async with db_pool.acquire() as conn:
-            await conn.execute(
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
                 "INSERT INTO b2b_partners (id, partner_name, org_name, contact_email, api_key, webhook_url, webhook_secret, plan, api_calls_limit) "
-                "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-                partner_id, req.partner_name, req.org_name, req.email,
-                api_key, req.webhook_url, webhook_secret, req.plan, call_limit
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (partner_id, req.partner_name, req.org_name, req.email,
+                 api_key, req.webhook_url, webhook_secret, req.plan, call_limit)
             )
+            await db.commit()
     except Exception as e:
-        print("[ERROR] Key issuance failed: " + str(e))
         raise HTTPException(status_code=400, detail="Key issuance failed. Partner may already have a key.")
 
     # Generate Shamir 2-of-3 shards for 3-server distribution
