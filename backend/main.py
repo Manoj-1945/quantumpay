@@ -641,7 +641,7 @@ class IBMQiskitEngine:
                 for _ in range(15):
                     await _aio.sleep(1)
                     res = await client.get(
-                        "https://runtime-us-east.quantum-computing.ibm.com/jobs/" + job_id + "/results",
+                        "https://api.quantum.ibm.com/v1/jobs/" + job_id + "/results",
                         headers={"Authorization": "Bearer " + access_token}
                     )
                     if res.status_code == 200:
