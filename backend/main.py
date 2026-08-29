@@ -739,6 +739,8 @@ class IBMQiskitEngine:
             "token_configured": bool(self.ibm_token)
         }
 
+ibm_qiskit_engine = IBMQiskitEngine()
+
 async def refill_key_pool():
     import asyncio as _asyncio
     while True:
