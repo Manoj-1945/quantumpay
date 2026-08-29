@@ -633,7 +633,7 @@ class IBMQiskitEngine:
         print("[IBM POOL] Qiskit Auth OK! Finding least busy backend...")
         try:
             # For free tier, we use the simulator since QPU queues are too long for monthly harvest
-            backend = service.least_busy(simulator=True)
+            backend = service.least_busy(operational=True, simulator=False, min_num_qubits=127)
             print(f"[IBM POOL] Selected backend: {backend.name}")
             
             # Create a 127-qubit maximum superposition circuit
