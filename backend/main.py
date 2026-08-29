@@ -739,6 +739,31 @@ class IBMQiskitEngine:
             "token_configured": bool(self.ibm_token)
         }
 
+async def refill_key_pool():
+    import asyncio as _asyncio
+    while True:
+        try:
+            if not db_pool:
+                await _asyncio.sleep(10)
+                continue
+            async with db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT COUNT(*) FROM key_pool WHERE status='AVAILABLE'")
+                available = row[0]
+                needed = KEY_POOL_TARGET - available
+                if needed > 0:
+                    batch = min(needed, 5000)
+                    tokens = ibm_qiskit_engine.generate_tokens(batch)
+                    await conn.executemany(
+                        "INSERT INTO key_pool (token) VALUES ($1)",
+                        [(t,) for t in tokens]
+                    )
+                    print("[KEY POOL] Refilled " + str(batch) + " tokens | Total available: " + str(available + batch))
+                    await _asyncio.sleep(0.1)
+        except Exception as e:
+            print("[WARN] Key pool refill error: " + str(e))
+        await _asyncio.sleep(30)
+
+# ─── STARTUP ──────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
     global db_pool
