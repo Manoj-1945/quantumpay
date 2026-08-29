@@ -18,3 +18,6 @@ dilithium-py==1.4.0
 apprise==1.8.0
 
 bcrypt==3.2.2
+
+qiskit>=1.0.0
+qiskit-ibm-runtime>=0.23.0
