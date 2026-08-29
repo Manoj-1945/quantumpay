@@ -641,11 +641,11 @@ class IBMQiskitEngine:
             qc.h(range(127))
             qc.measure(range(127), range(127))
             
-            sampler = Sampler(backend=backend)
+            sampler = Sampler(mode=backend)
             print("[IBM POOL] Submitting quantum circuit to IBM...")
             # We run it with 'needed_chunks' shots, each shot generates random bits
-            shots = needed_chunks * 3
-            job = sampler.run([qc], shots=shots)
+            sampler.options.default_shots = needed_chunks * 3
+            job = sampler.run([qc])
             
             print(f"[IBM POOL] Job ID {job.job_id()} running. Waiting for results...")
             result = job.result()
