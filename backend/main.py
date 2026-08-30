@@ -695,7 +695,7 @@ class IBMQiskitEngine:
             existing = _chk_row[0]
             
         # We temporarily bypass the check to run the harvest once for the user
-        if existing >= 999999: # Temporarily bypassed
+        if existing >= self.monthly_target:
             print("[IBM POOL] Current month " + current_month + " already harvested: " + str(existing) + " chunks")
             return existing
 
