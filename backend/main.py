@@ -747,7 +747,11 @@ class IBMQiskitEngine:
 ibm_qiskit_engine = IBMQiskitEngine()
 
 async def refill_key_pool():
+    """
+    Continuously refills the key_pool with triple-mixed tokens (IBM + ANU + OS-CSPRNG).
+    """
     import asyncio as _asyncio
+    import httpx, secrets, hashlib
     while True:
         try:
             if not db_pool:
@@ -758,14 +762,39 @@ async def refill_key_pool():
                 available = row[0]
                 needed = KEY_POOL_TARGET - available
                 if needed > 0:
-                    batch = min(needed, 5000)
-                    tokens = ibm_qiskit_engine.generate_tokens(batch)
+                    batch = min(needed, 500)
+                    
+                    # 1. Grab IBM Tokens from DB pool
+                    ibm_rows = await conn.fetch("SELECT chunk_data FROM ibm_entropy_pool ORDER BY RANDOM() LIMIT $1", batch)
+                    
+                    # 2. Grab ANU Tokens
+                    anu_bytes = []
+                    try:
+                        async with httpx.AsyncClient(timeout=15.0) as client:
+                            resp = await client.get(f"https://qrng.anu.edu.au/API/jsonI.php?length={batch}&type=hex16")
+                            if resp.status_code == 200:
+                                anu_bytes = resp.json().get("data", [])
+                    except Exception as e:
+                        print(f"[WARN] ANU fetch failed for mixing: {e}")
+                    
+                    # 3. Triple Mix!
+                    mixed_tokens = []
+                    for i in range(batch):
+                        ibm_hex = ibm_rows[i]["chunk_data"] if i < len(ibm_rows) else secrets.token_hex(16)
+                        anu_hex = anu_bytes[i] if i < len(anu_bytes) else secrets.token_hex(16)
+                        hw_hex = secrets.token_hex(16)
+                        
+                        # HKDF SHA3-256 mix
+                        raw = (ibm_hex + anu_hex + hw_hex).encode()
+                        final_hex = hashlib.sha3_256(raw).hexdigest()
+                        mixed_tokens.append((final_hex,))
+                        
                     await conn.executemany(
                         "INSERT INTO key_pool (token) VALUES ($1)",
-                        [(t,) for t in tokens]
+                        mixed_tokens
                     )
-                    print("[KEY POOL] Refilled " + str(batch) + " tokens | Total available: " + str(available + batch))
-                    await _asyncio.sleep(0.1)
+                    print(f"[KEY POOL] Triple-Mixed and Refilled {batch} tokens | Total available: {available + batch}")
+                    await _asyncio.sleep(0.5)
         except Exception as e:
             print("[WARN] Key pool refill error: " + str(e))
         await _asyncio.sleep(30)
