@@ -641,11 +641,16 @@ class IBMQiskitEngine:
             qc.h(range(127))
             qc.measure(range(127), range(127))
             
+            # Post-March 2024: Circuits must be ISA-compliant with the specific QPU
+            from qiskit import transpile
+            print("[IBM POOL] Transpiling circuit for ISA compliance...")
+            qc_transpiled = transpile(qc, backend=backend, optimization_level=1)
+            
             sampler = Sampler(mode=backend)
-            print("[IBM POOL] Submitting quantum circuit to IBM...")
+            print("[IBM POOL] Submitting transpiled quantum circuit to IBM...")
             # We run it with 'needed_chunks' shots, each shot generates random bits
             sampler.options.default_shots = needed_chunks * 3
-            job = sampler.run([qc])
+            job = sampler.run([qc_transpiled])
             
             print(f"[IBM POOL] Job ID {job.job_id()} running. Waiting for results...")
             result = job.result()
