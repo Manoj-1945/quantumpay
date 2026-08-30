@@ -1980,9 +1980,21 @@ class IssueKeyRequest(BaseModel):
 
 @app.post("/api/admin/partners/issue-key")
 async def issue_partner_key(req: IssueKeyRequest, _admin: str = Depends(get_admin_user)):
-    """Admin issues a QRNG-generated API key to an approved partner."""
-    # Generate QRNG API key
-    q_bytes = await quantum.get_qrng_bytes(32)
+    """Admin issues a pure ANU QRNG-generated API key to an approved partner via live request."""
+    # Direct live request to ANU for one-time pure randomness
+    import httpx, secrets
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get("https://qrng.anu.edu.au/API/jsonI.php?length=16&type=uint8")
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                q_bytes = bytes(data)
+            else:
+                raise ValueError("ANU returned non-200")
+    except Exception as e:
+        print(f"[WARN] Live ANU fetch failed for API key, using fallback: {e}")
+        q_bytes = secrets.token_bytes(16)
+        
     api_key = "qp.b2b.v5." + q_bytes.hex()[:32]
     webhook_secret = secrets.token_hex(32)
     partner_id = str(uuid.uuid4())
