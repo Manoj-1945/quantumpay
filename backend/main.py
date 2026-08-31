@@ -1999,7 +1999,7 @@ async def get_my_api_key(current_user: str = Depends(get_current_user)):
 # ─── ADMIN: LIST PENDING PARTNERS (registered but no API key yet) ──────────────
 @app.get("/api/admin/pending-partners")
 @limiter.limit("30/minute")  # SEC: rate limit admin reads
-async def get_pending_partners(_admin: str = Depends(get_admin_user)):
+async def get_pending_partners(request: Request, _admin: str = Depends(get_admin_user)):
     """Admin sees all users who registered via partner portal but haven't been issued an API key."""
     async with aiosqlite.connect(DB_PATH) as db:
         # Get all non-admin users
@@ -2072,7 +2072,7 @@ def decrypt_token(encrypted_b64: str) -> str:
 
 @app.post("/api/admin/partners/issue-key")
 @limiter.limit("5/minute")  # SEC: prevent IBM/ANU spam
-async def issue_partner_key(req: IssueKeyRequest, _admin: str = Depends(get_admin_user)):
+async def issue_partner_key(request: Request, req: IssueKeyRequest, _admin: str = Depends(get_admin_user)):
     """Admin issues a pure ANU QRNG-generated API key to an approved partner via live request."""
     # Direct live request to ANU for one-time pure randomness
     import httpx, secrets
