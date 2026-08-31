@@ -1831,7 +1831,7 @@ async def iso20022_convert(request: Request, req: ISO20022Request, x_api_key: st
     if not x_api_key or not x_api_key.startswith("qp.b2b.v5."):
         raise HTTPException(status_code=401, detail="Invalid API Key Format")
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT id FROM b2b_partners WHERE api_key=? AND is_active=1", (x_api_key,)) as cur:
+        async with db.execute("SELECT id FROM b2b_partners WHERE api_key=? AND is_active=1", (hash_api_key(x_api_key),)) as cur:
             if not await cur.fetchone():
                 raise HTTPException(status_code=401, detail="Unauthorized API Key")
     q_bytes = await quantum.get_qrng_bytes(32)
@@ -1874,7 +1874,7 @@ async def audit_export(admin: str = Depends(get_admin_user)):
 async def update_webhook_url(api_key: str, webhook_url: str):
     """Partner updates their own webhook URL."""
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT id FROM b2b_partners WHERE api_key=? AND is_active=1", (api_key,)) as c:
+        async with db.execute("SELECT id FROM b2b_partners WHERE api_key=? AND is_active=1", (hash_api_key(api_key),)) as c:
             row = await c.fetchone()
         if not row:
             raise HTTPException(status_code=401, detail="Invalid API key")
@@ -1904,7 +1904,7 @@ async def test_webhook(api_key: str):
 async def rotate_api_key(api_key: str):
     """Partner rotates their API key. Old key is immediately invalidated."""
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT id FROM b2b_partners WHERE api_key=? AND is_active=1", (api_key,)) as c:
+        async with db.execute("SELECT id FROM b2b_partners WHERE api_key=? AND is_active=1", (hash_api_key(api_key),)) as c:
             row = await c.fetchone()
         if not row:
             raise HTTPException(status_code=401, detail="Invalid API key")
@@ -1924,7 +1924,7 @@ async def rotate_api_key(api_key: str):
 async def offboard_partner(api_key: str, _admin: str = Depends(get_admin_user)):
     """Admin gracefully offboards a partner — deactivates key and marks all pending transactions failed."""
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT id, partner_name FROM b2b_partners WHERE api_key=?", (api_key,)) as c:
+        async with db.execute("SELECT id, partner_name FROM b2b_partners WHERE api_key=?", (hash_api_key(api_key),)) as c:
             row = await c.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Partner not found")
