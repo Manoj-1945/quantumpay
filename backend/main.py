@@ -786,7 +786,7 @@ async def refill_key_pool():
                     batch = min(needed, 500)
                     
                     # 1. Grab IBM Tokens from DB pool
-                    ibm_rows = await conn.fetch("SELECT chunk_data FROM ibm_entropy_pool ORDER BY RANDOM() LIMIT $1", batch)
+                    ibm_rows = await conn.fetch("SELECT id, entropy_hex FROM ibm_entropy_pool WHERE used=0 ORDER BY RANDOM() LIMIT $1", batch)
                     
                     # 2. Grab ANU Tokens
                     anu_bytes = []
@@ -801,7 +801,7 @@ async def refill_key_pool():
                     # 3. Triple Mix!
                     mixed_tokens = []
                     for i in range(batch):
-                        ibm_hex = ibm_rows[i]["chunk_data"] if i < len(ibm_rows) else secrets.token_hex(16)
+                        ibm_hex = ibm_rows[i]["entropy_hex"] if i < len(ibm_rows) else secrets.token_hex(16)
                         anu_hex = anu_bytes[i] if i < len(anu_bytes) else secrets.token_hex(16)
                         hw_hex = secrets.token_hex(16)
                         
