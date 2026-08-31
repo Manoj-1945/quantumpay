@@ -181,8 +181,12 @@ def verify_password(plain: str, hashed: str) -> bool:
 limiter = Limiter(key_func=get_remote_address)
 
 # ─── APP ─────────────────────────────────────────────────────────────────────
+_ENV = os.getenv("ENV", "production")
 app = FastAPI(
     title="QuantumPay API",
+    docs_url="/docs" if _ENV == "development" else None,
+    redoc_url="/redoc" if _ENV == "development" else None,
+    openapi_url="/openapi.json" if _ENV == "development" else None,
     description="""
 ## QuantumPay v5.0 — World's First Quantum-Secured Payment Backend
 
@@ -219,6 +223,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── SECURITY HEADERS MIDDLEWARE ─────────────────────────────────────────────
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ─── DATABASE ────────────────────────────────────────────────────────────────
 async def init_db():
@@ -465,7 +485,8 @@ class QuantumEngine:
                         await conn.execute(
                             "UPDATE key_pool SET status='CONSUMED' WHERE id=$1", row["id"]
                         )
-                        token_bytes = bytes.fromhex(row["token"])
+                        decrypted_hex = decrypt_token(row["token"])
+                        token_bytes = bytes.fromhex(decrypted_hex)
                         return (token_bytes * (n // 32 + 1))[:n]
         except Exception as e:
             print("[WARN] Pool draw error, using CSPRNG fallback: " + str(e))
@@ -789,9 +810,11 @@ async def refill_key_pool():
                         final_hex = hashlib.sha3_256(raw).hexdigest()
                         mixed_tokens.append((final_hex,))
                         
+                    # Encrypt each token before storing in DB
+                    encrypted_tokens = [(encrypt_token(t[0]),) for t in mixed_tokens]
                     await conn.executemany(
                         "INSERT INTO key_pool (token) VALUES ($1)",
-                        mixed_tokens
+                        encrypted_tokens
                     )
                     print(f"[KEY POOL] Triple-Mixed and Refilled {batch} tokens | Total available: {available + batch}")
                     await _asyncio.sleep(0.5)
@@ -1674,7 +1697,7 @@ async def b2b_generate_token(req: B2BPaymentRequest, request: Request):
         raise HTTPException(status_code=400, detail="Amount must be 0.01 to 10,00,000 INR")
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT id, partner_name, webhook_url, webhook_secret, api_calls_used, api_calls_limit FROM b2b_partners WHERE api_key=? AND is_active=1", (req.api_key,)
+            "SELECT id, partner_name, webhook_url, webhook_secret, api_calls_used, api_calls_limit FROM b2b_partners WHERE api_key=? AND is_active=1", (hash_api_key(req.api_key),)
         ) as c:
             partner_row = await c.fetchone()
     if not partner_row:
@@ -1975,6 +1998,7 @@ async def get_my_api_key(current_user: str = Depends(get_current_user)):
 
 # ─── ADMIN: LIST PENDING PARTNERS (registered but no API key yet) ──────────────
 @app.get("/api/admin/pending-partners")
+@limiter.limit("30/minute")  # SEC: rate limit admin reads
 async def get_pending_partners(_admin: str = Depends(get_admin_user)):
     """Admin sees all users who registered via partner portal but haven't been issued an API key."""
     async with aiosqlite.connect(DB_PATH) as db:
@@ -2007,7 +2031,47 @@ class IssueKeyRequest(BaseModel):
     plan: str = "starter"
     webhook_url: str = ""
 
+
+# ─── API KEY SECURITY HELPERS ────────────────────────────────────────────────
+def hash_api_key(raw_key: str) -> str:
+    """Store only SHA-256 hash of API key in DB. Never store raw key."""
+    return hashlib.sha256(raw_key.encode('utf-8')).hexdigest()
+
+
+# ─── TOKEN ENCRYPTION AT REST ─────────────────────────────────────────────────
+import base64 as _b64
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+_POOL_ENC_KEY_HEX = os.getenv("POOL_ENCRYPTION_KEY", "")
+
+def _get_pool_enc_key() -> bytes:
+    """Returns 32-byte AES key from env var. Falls back to deterministic key from SECRET_KEY."""
+    if _POOL_ENC_KEY_HEX and len(_POOL_ENC_KEY_HEX) >= 64:
+        return bytes.fromhex(_POOL_ENC_KEY_HEX[:64])
+    return hashlib.sha256(SECRET_KEY.encode()).digest()
+
+def encrypt_token(token_hex: str) -> str:
+    """Encrypt a hex token with AES-256-GCM before storing in DB."""
+    key = _get_pool_enc_key()
+    aesgcm = AESGCM(key)
+    nonce = secrets.token_bytes(12)
+    ciphertext = aesgcm.encrypt(nonce, token_hex.encode(), None)
+    return _b64.b64encode(nonce + ciphertext).decode()
+
+def decrypt_token(encrypted_b64: str) -> str:
+    """Decrypt a stored encrypted token for use."""
+    try:
+        key = _get_pool_enc_key()
+        aesgcm = AESGCM(key)
+        raw = _b64.b64decode(encrypted_b64)
+        nonce, ciphertext = raw[:12], raw[12:]
+        return aesgcm.decrypt(nonce, ciphertext, None).decode()
+    except Exception:
+        # If token is not encrypted (legacy), return as-is
+        return encrypted_b64
+
 @app.post("/api/admin/partners/issue-key")
+@limiter.limit("5/minute")  # SEC: prevent IBM/ANU spam
 async def issue_partner_key(req: IssueKeyRequest, _admin: str = Depends(get_admin_user)):
     """Admin issues a pure ANU QRNG-generated API key to an approved partner via live request."""
     # Direct live request to ANU for one-time pure randomness
@@ -2024,7 +2088,8 @@ async def issue_partner_key(req: IssueKeyRequest, _admin: str = Depends(get_admi
         print(f"[WARN] Live ANU fetch failed for API key, using fallback: {e}")
         q_bytes = secrets.token_bytes(16)
         
-    api_key = "qp.b2b.v5." + q_bytes.hex()[:32]
+    api_key_raw = "qp.b2b.v5." + q_bytes.hex()[:32]
+    api_key = hash_api_key(api_key_raw)  # SEC: store only SHA-256 hash in DB
     webhook_secret = secrets.token_hex(32)
     partner_id = str(uuid.uuid4())
 
