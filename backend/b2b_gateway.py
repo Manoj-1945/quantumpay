@@ -1,8 +1,8 @@
 """
-QuantumPay B2B Security Gateway & SDK Middleware
+AnuPradaan B2B Security Gateway & SDK Middleware
 =================================================
 Allows existing payment apps (PhonePe, Paytm, Razorpay, Banks)
-to plug into QuantumPay's Post-Quantum Security Engine with 3 lines of code.
+to plug into AnuPradaan's Post-Quantum Security Engine with 3 lines of code.
 
 B2B Business Strategy (Manoj Kumar G K):
 1. Zero Hardware Overhead: Partner platforms use their own HSM/banking nodes.
