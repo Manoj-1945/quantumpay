@@ -2226,6 +2226,69 @@ if __name__ == "__main__":
 
 
 # ─── BANK SELF-SERVICE DASHBOARD API ─────────────────────────────────────────
+
+
+# ─── ADMIN PARTNER MANAGEMENT EXTRAS ─────────────────────────────────────────
+
+@app.post("/api/admin/partners/{partner_id}/change-plan")
+@limiter.limit("10/minute")
+async def change_partner_plan(request: Request, partner_id: str, _admin: str = Depends(get_admin_user)):
+    """Admin: change a partner's plan and quota limit."""
+    body = await request.json()
+    plan = body.get("plan", "starter").lower()
+    if plan not in ("starter", "professional", "enterprise"):
+        raise HTTPException(status_code=400, detail="Invalid plan. Choose starter, professional, or enterprise.")
+    limits = {"starter": 10000, "professional": 500000, "enterprise": 999999999}
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB unavailable")
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT id FROM b2b_partners WHERE id=$1", partner_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Partner not found")
+        await conn.execute(
+            "UPDATE b2b_partners SET plan=$1, api_calls_limit=$2 WHERE id=$3",
+            plan, limits[plan], partner_id
+        )
+    return {"success": True, "partner_id": partner_id, "new_plan": plan, "new_limit": limits[plan]}
+
+
+@app.post("/api/admin/partners/{partner_id}/set-quota")
+@limiter.limit("10/minute")
+async def set_partner_quota(request: Request, partner_id: str, _admin: str = Depends(get_admin_user)):
+    """Admin: set a custom API call quota for a partner."""
+    body = await request.json()
+    try:
+        limit = int(body.get("limit", 10000))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Limit must be an integer")
+    if limit < 100 or limit > 10000000:
+        raise HTTPException(status_code=400, detail="Quota must be between 100 and 10,000,000")
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB unavailable")
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT id FROM b2b_partners WHERE id=$1", partner_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Partner not found")
+        await conn.execute("UPDATE b2b_partners SET api_calls_limit=$1 WHERE id=$2", limit, partner_id)
+    return {"success": True, "partner_id": partner_id, "new_limit": limit}
+
+
+@app.post("/api/admin/maintenance")
+@limiter.limit("5/minute")
+async def set_maintenance_mode(request: Request, _admin: str = Depends(get_admin_user)):
+    """Admin: toggle system maintenance mode."""
+    body = await request.json()
+    enabled = bool(body.get("enabled", False))
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB unavailable")
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO admin_settings(key,value) VALUES('maintenance',$1) ON CONFLICT(key) DO UPDATE SET value=$1",
+            str(enabled).lower()
+        )
+    print(f"[ADMIN] Maintenance mode: {'ENABLED' if enabled else 'DISABLED'}")
+    return {"success": True, "maintenance_mode": enabled}
+
 @app.get("/api/bank/profile")
 @limiter.limit("30/minute")  # FIX 2: rate limit
 async def bank_profile(api_key: str, request: Request):
