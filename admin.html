@@ -17,10 +17,8 @@
     html,body{height:100%;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
     canvas#bg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:.15}
     .shell{position:relative;z-index:1;display:flex;min-height:100vh}
-
-    /* SIDEBAR */
     .sidebar{width:var(--sw);flex-shrink:0;background:rgba(3,5,18,0.97);border-right:1px solid var(--border);
-      display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:50;padding-bottom:16px}
+      display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:50;padding-bottom:16px;overflow-y:auto}
     .sb-logo{display:flex;align-items:center;gap:10px;padding:18px 16px;border-bottom:1px solid var(--border)}
     .sb-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--cyan),var(--purple));
       border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
@@ -34,6 +32,7 @@
     .sb-item .icon{width:18px;text-align:center;font-size:1rem}
     .sb-badge{margin-left:auto;background:rgba(0,255,170,.15);color:var(--green);border-radius:10px;padding:1px 6px;font-size:.6rem;font-weight:700}
     .sb-badge.red{background:rgba(255,107,107,.2);color:var(--pink)}
+    .sb-badge.warn{background:rgba(255,204,0,.2);color:var(--yellow)}
     .sb-bottom{margin-top:auto;padding:12px 14px;border-top:1px solid var(--border)}
     .sb-status{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--dim);margin-bottom:8px}
     .ss-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s ease infinite;flex-shrink:0}
@@ -41,8 +40,6 @@
     .sb-links{display:flex;flex-direction:column;gap:4px}
     .sb-link{font-size:.72rem;color:var(--dim);padding:5px 0;border-radius:6px;transition:color .2s;text-decoration:none}
     .sb-link:hover{color:var(--cyan)}
-
-    /* MAIN */
     .main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column}
     .topbar{height:var(--th);background:rgba(3,5,18,0.95);border-bottom:1px solid var(--border);
       display:flex;align-items:center;justify-content:space-between;padding:0 24px;
@@ -57,20 +54,14 @@
     .tb-clock{font-family:'Space Mono',monospace;font-size:.75rem;color:var(--dim)}
     .tb-avatar{width:32px;height:32px;background:linear-gradient(135deg,var(--cyan),var(--purple));
       border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#000;cursor:pointer}
-
-    /* TABS */
     .tab{display:none;padding:24px;flex-direction:column;gap:20px;animation:fadeUp .35s ease}
     .tab.active{display:flex}
     @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-
-    /* CARDS */
     .glass{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:20px;position:relative;overflow:hidden;backdrop-filter:blur(12px)}
     .glass::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,245,255,.25),transparent)}
     .card-title{font-size:.85rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
     .live-badge{display:inline-flex;align-items:center;gap:4px;font-size:.62rem;color:var(--green);font-weight:400;background:rgba(0,255,170,.08);border:1px solid rgba(0,255,170,.2);border-radius:10px;padding:1px 6px}
     .live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green);animation:pulse 1s ease infinite}
-
-    /* METRICS */
     .metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
     .metric{background:var(--bg2);border:1px solid var(--border);border-bottom:2px solid var(--c,#00f5ff);
       border-radius:14px;padding:16px;transition:transform .25s,box-shadow .25s;cursor:default}
@@ -81,11 +72,9 @@
     .m-delta{font-size:.65rem}
     .m-delta.pos{color:var(--green)}
     .m-delta.neg{color:var(--pink)}
-
     .two-col{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
     .three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-
-    /* TABLE */
+    .four-col{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
     .tbl{width:100%;border-collapse:collapse;font-size:.78rem}
     .tbl th{text-align:left;padding:7px 12px;color:var(--dim);font-size:.63rem;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);font-weight:600}
     .tbl td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle}
@@ -95,16 +84,19 @@
     .pill.red{background:rgba(255,107,107,.12);color:var(--pink);border:1px solid rgba(255,107,107,.25)}
     .pill.cyan{background:rgba(0,245,255,.1);color:var(--cyan);border:1px solid rgba(0,245,255,.2)}
     .pill.yellow{background:rgba(255,204,0,.12);color:var(--yellow);border:1px solid rgba(255,204,0,.25)}
+    .pill.purple{background:rgba(123,47,255,.15);color:#a97fff;border:1px solid rgba(123,47,255,.3)}
     .mono{font-family:'Space Mono',monospace;font-size:.68rem}
-
-    /* ACTION BUTTONS */
     .btn{padding:4px 12px;border-radius:6px;font-size:.68rem;font-weight:700;cursor:pointer;border:none;font-family:'Outfit',sans-serif;transition:all .2s}
     .btn-revoke{background:rgba(255,107,107,.15);color:var(--pink);border:1px solid rgba(255,107,107,.3)}
     .btn-revoke:hover{background:rgba(255,107,107,.3)}
     .btn-activate{background:rgba(0,255,170,.15);color:var(--green);border:1px solid rgba(0,255,170,.3)}
     .btn-activate:hover{background:rgba(0,255,170,.3)}
-
-    /* AUDIT CHAIN */
+    .btn-primary{background:linear-gradient(135deg,var(--cyan),var(--purple));color:#000;font-weight:700}
+    .btn-primary:hover{opacity:.85}
+    .btn-warn{background:rgba(255,204,0,.15);color:var(--yellow);border:1px solid rgba(255,204,0,.3)}
+    .btn-warn:hover{background:rgba(255,204,0,.3)}
+    .btn-danger{background:rgba(255,107,107,.2);color:var(--pink);border:1px solid rgba(255,107,107,.4)}
+    .btn-danger:hover{background:rgba(255,107,107,.4)}
     .audit-chain{display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto}
     .block-item{display:flex;gap:10px;background:var(--bg3);border-radius:10px;padding:10px 12px;border-left:2px solid var(--green)}
     .block-num{font-family:'Space Mono',monospace;font-size:.7rem;color:var(--green);font-weight:700;flex-shrink:0;width:36px}
@@ -112,70 +104,38 @@
     .block-action{font-size:.78rem;font-weight:600;margin-bottom:2px}
     .block-hash{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .block-time{font-size:.65rem;color:var(--dim);flex-shrink:0}
-
-    /* SLA BAR */
     .sla-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-    .sla-name{font-size:.78rem;flex:0 0 140px}
+    .sla-name{font-size:.78rem;flex:0 0 160px}
     .sla-bar-wrap{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
     .sla-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--cyan),var(--green));transition:width .8s ease}
-    .sla-val{font-family:'Space Mono',monospace;font-size:.68rem;color:var(--green);flex:0 0 45px;text-align:right}
-
+    .pool-bar-wrap{width:100%;height:14px;background:rgba(255,255,255,.06);border-radius:7px;overflow:hidden;margin:8px 0}
+    .pool-bar{height:100%;border-radius:7px;transition:width 1s ease}
+    .search-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.8rem;width:100%;font-family:'Outfit',sans-serif}
+    .search-box:focus{outline:none;border-color:var(--cyan)}
+    .toggle-wrap{display:flex;align-items:center;gap:10px}
+    .toggle{position:relative;width:44px;height:24px}
+    .toggle input{opacity:0;width:0;height:0}
+    .toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:12px;cursor:pointer;transition:.3s}
+    .toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.3s}
+    .toggle input:checked+.toggle-slider{background:var(--green)}
+    .toggle input:checked+.toggle-slider:before{transform:translateX(20px)}
+    .inp{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.8rem;font-family:'Outfit',sans-serif}
+    .inp:focus{outline:none;border-color:var(--cyan)}
+    select.inp{cursor:pointer}
     ::-webkit-scrollbar{width:4px}
     ::-webkit-scrollbar-thumb{background:rgba(0,245,255,.15);border-radius:2px}
     canvas.chart{width:100%;height:180px;display:block}
-    @media(max-width:1100px){.metrics-grid{grid-template-columns:repeat(2,1fr)}.two-col,.three-col{grid-template-columns:1fr}}
+    @media(max-width:1100px){.metrics-grid{grid-template-columns:repeat(2,1fr)}.two-col,.three-col,.four-col{grid-template-columns:1fr}}
   </style>
-
 </head>
 <body>
-<style>
-/* QuantumPay Unified Navigation */
-.qp-nav{display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:64px;
-  background:rgba(10,10,15,0.97);border-bottom:1px solid #1a1a2e;position:sticky;top:0;z-index:9999;backdrop-filter:blur(12px);}
-.qp-logo{color:#00d4ff;font-size:1.25rem;font-weight:800;text-decoration:none;letter-spacing:-0.5px;}
-.qp-logo:hover{opacity:0.85;}
-.qp-nav-links{display:flex;align-items:center;gap:1.75rem;}
-.qp-nav-link{color:#8080a0;text-decoration:none;font-size:0.875rem;transition:color 0.2s;cursor:pointer;}
-.qp-nav-link:hover,.qp-nav-link.active{color:#00d4ff;}
-.qp-nav-sep{width:1px;height:20px;background:#1a1a2e;}
-.qp-btn-demo{background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;
-  padding:7px 16px;border-radius:8px;text-decoration:none;font-size:0.85rem;font-weight:600;transition:opacity 0.2s;}
-.qp-btn-demo:hover{opacity:0.8;}
-.qp-btn-partner{background:linear-gradient(135deg,#00d4ff,#7b2fff);color:#fff;
-  padding:8px 18px;border-radius:8px;text-decoration:none;font-size:0.875rem;font-weight:700;transition:opacity 0.2s;}
-.qp-btn-partner:hover{opacity:0.85;}
-.qp-hamburger{display:none;cursor:pointer;font-size:1.4rem;color:#8080a0;background:none;border:none;}
-@media(max-width:768px){
-  .qp-nav-links{display:none;position:absolute;top:64px;left:0;right:0;background:#0a0a0f;
-    flex-direction:column;align-items:flex-start;padding:1rem 2rem;gap:1rem;
-    border-bottom:1px solid #1a1a2e;z-index:9998;}
-  .qp-nav-links.open{display:flex;}
-  .qp-nav-sep{display:none;}
-  .qp-hamburger{display:block;}
-}
-</style>
-<nav class="qp-nav">
-  <a href="/" class="qp-logo">⚛ QuantumPay</a>
-  <div class="qp-nav-links" id="qp-links">
-    <a href="/" class="qp-nav-link">Home</a>
-    <a href="/pricing.html" class="qp-nav-link">Pricing</a>
-    <a href="/compliance.html" class="qp-nav-link">Compliance</a>
-    <a href="/pitch.html" class="qp-nav-link">Pitch Deck</a>
-    <a href="/shield.html" class="qp-nav-link">Security</a>
-    <div class="qp-nav-sep"></div>
-    <a href="/login.html" class="qp-btn-demo">🎬 Live Demo</a>
-    <a href="/partner_login.html" class="qp-btn-partner">Partner Access →</a>
-  </div>
-  <button class="qp-hamburger" onclick="document.getElementById('qp-links').classList.toggle('open')">☰</button>
-</nav>
-
 <canvas id="bg"></canvas>
 <div class="shell">
 
   <!-- SIDEBAR -->
   <nav class="sidebar">
     <div class="sb-logo">
-      <div class="sb-logo-icon">⚛</div>
+      <div class="sb-logo-icon">&#9883;</div>
       <div>
         <div class="sb-brand">QuantumPay</div>
         <div class="sb-role">CEO COMMAND CENTER</div>
@@ -184,40 +144,54 @@
 
     <div class="sb-section">Overview</div>
     <div class="sb-item active" onclick="showTab('dashboard',this)">
-      <span class="icon">📊</span> B2B Dashboard
+      <span class="icon">&#128202;</span> B2B Dashboard
     </div>
 
     <div class="sb-section">Partners</div>
     <div class="sb-item" onclick="showTab('partners',this)">
-      <span class="icon">🏦</span> Partner Banks
+      <span class="icon">&#127970;</span> Partner Banks
       <span class="sb-badge" id="sb-partners">0</span>
     </div>
+    <div class="sb-item" onclick="showTab('users',this)">
+      <span class="icon">&#128100;</span> All Users
+      <span class="sb-badge" id="sb-users">0</span>
+    </div>
+    <div class="sb-item" onclick="showTab('transactions',this)">
+      <span class="icon">&#9889;</span> All Transactions
+    </div>
     <div class="sb-item" onclick="showTab('revenue',this)">
-      <span class="icon">💰</span> Revenue
+      <span class="icon">&#128176;</span> Revenue
+    </div>
+
+    <div class="sb-section">Quantum Engine</div>
+    <div class="sb-item" onclick="showTab('ibmpool',this)">
+      <span class="icon">&#9883;</span> IBM Pool
+      <span class="sb-badge warn" id="sb-pool">?</span>
     </div>
     <div class="sb-item" onclick="showTab('sla',this)">
-      <span class="icon">⚡</span> SLA Monitor
+      <span class="icon">&#8987;</span> SLA Monitor
     </div>
 
     <div class="sb-section">Security</div>
     <div class="sb-item" onclick="showTab('audit',this)">
-      <span class="icon">⛓</span> Audit Ledger
+      <span class="icon">&#9935;</span> Audit Ledger
     </div>
     <div class="sb-item" onclick="showTab('threats',this)">
-      <span class="icon">🛡</span> Threat Intel
+      <span class="icon">&#128737;</span> Threat Intel
     </div>
-
+    <div class="sb-item" onclick="showTab('security',this)">
+      <span class="icon">&#128272;</span> Security Tools
+    </div>
     <div class="sb-item" onclick="showTab('alerts',this)">
-      <span class="icon">🚨</span> Alerts & Ledger
+      <span class="icon">&#128680;</span> System Controls
     </div>
 
     <div class="sb-bottom">
-      <div class="sb-status"><div class="ss-dot"></div>Railway Online · Secure</div>
+      <div class="sb-status"><div class="ss-dot"></div>Railway Online &middot; Secure</div>
       <div class="sb-links">
-        <a class="sb-link" href="index.html">← Landing Page</a>
-        <a class="sb-link" href="pay.html">← Payment App</a>
-        <a class="sb-link" href="shield.html">← Security Dashboard</a>
-        <a class="sb-link" href="b2b.html">← B2B Portal</a>
+        <a class="sb-link" href="index.html">&#8592; Landing Page</a>
+        <a class="sb-link" href="partner_login.html">&#8592; Partner Portal</a>
+        <a class="sb-link" href="login.html">&#8592; Payment App</a>
       </div>
     </div>
   </nav>
@@ -227,177 +201,206 @@
     <div class="topbar">
       <div class="tb-left">
         <div class="tb-title" id="tab-title">B2B Dashboard</div>
-        <div class="tb-sub">QuantumPay CEO Command Center — Real-Time B2B Intelligence</div>
+        <div class="tb-sub">QuantumPay CEO Command Center &mdash; Real-Time B2B Intelligence</div>
       </div>
       <div class="tb-right">
+        <div id="maint-indicator" style="display:none;background:rgba(255,107,107,.15);border:1px solid rgba(255,107,107,.4);border-radius:20px;padding:4px 12px;font-size:.7rem;color:var(--pink);font-weight:700">&#128683; MAINTENANCE</div>
         <div class="tb-pill"><div class="tb-pill-dot"></div>Quantum Secure</div>
         <div class="tb-clock" id="clock">--:--:--</div>
         <div class="tb-avatar" id="admin-avatar">A</div>
       </div>
     </div>
 
-    <!-- ── B2B DASHBOARD TAB ── -->
+    <!-- ── DASHBOARD TAB ── -->
     <div class="tab active" id="tab-dashboard">
       <div class="metrics-grid">
         <div class="metric" style="--c:#00f5ff">
-          <div class="m-icon">🏦</div>
+          <div class="m-icon">&#127970;</div>
           <div class="m-val" id="m-partners">0</div>
           <div class="m-label">Active B2B Partners</div>
-          <div class="m-delta pos" id="m-partners-delta">+Live from DB</div>
+          <div class="m-delta pos" id="m-partners-delta">Live from DB</div>
         </div>
         <div class="metric" style="--c:#00ffaa">
-          <div class="m-icon">⚡</div>
+          <div class="m-icon">&#9889;</div>
           <div class="m-val" id="m-apicalls">0</div>
           <div class="m-label">Total API Calls</div>
           <div class="m-delta pos">ISO-20022 Conversions</div>
         </div>
         <div class="metric" style="--c:#ffcc00">
-          <div class="m-icon">💰</div>
-          <div class="m-val" id="m-revenue">₹0</div>
+          <div class="m-icon">&#128176;</div>
+          <div class="m-val" id="m-revenue">&#8377;0</div>
           <div class="m-label">Platform Revenue</div>
-          <div class="m-delta pos">₹2 per API call</div>
+          <div class="m-delta pos">&#8377;2 per API call</div>
         </div>
         <div class="metric" style="--c:#7b2fff">
-          <div class="m-icon">🎯</div>
-          <div class="m-val" id="m-sla">51ms</div>
-          <div class="m-label">Guaranteed SLA</div>
-          <div class="m-delta pos">Quantum Speed ✓</div>
+          <div class="m-icon">&#9883;</div>
+          <div class="m-val" id="m-pool">?</div>
+          <div class="m-label">Quantum Tokens Ready</div>
+          <div class="m-delta pos" id="m-pool-status">Checking pool...</div>
         </div>
       </div>
 
       <div class="two-col">
         <div class="glass">
-          <div class="card-title">🏦 B2B Partner Overview <span class="live-badge"><span class="live-dot"></span>LIVE</span></div>
+          <div class="card-title">&#127970; B2B Partner Overview <span class="live-badge"><span class="live-dot"></span>LIVE</span></div>
           <table class="tbl" id="dash-partners-table">
-            <thead><tr>
-              <th>Partner Name</th>
-              <th>Plan</th>
-              <th>API Calls</th>
-              <th>Revenue</th>
-              <th>Status</th>
-            </tr></thead>
+            <thead><tr><th>Partner</th><th>Plan</th><th>API Calls</th><th>Revenue</th><th>Status</th></tr></thead>
             <tbody id="dash-partners-body">
-              <tr><td colspan="5" style="text-align:center;color:var(--dim);padding:20px">Loading partner data...</td></tr>
+              <tr><td colspan="5" style="text-align:center;color:var(--dim);padding:20px">Loading...</td></tr>
             </tbody>
           </table>
         </div>
         <div class="glass">
-          <div class="card-title">📈 Revenue Breakdown</div>
-          <canvas class="chart" id="revenue-chart"></canvas>
-          <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px" id="revenue-breakdown">
-            <div style="font-size:.75rem;color:var(--dim)">Loading revenue data...</div>
+          <div class="card-title">&#9883; IBM Quantum Pool <span class="live-badge"><span class="live-dot"></span>LIVE</span></div>
+          <div id="dash-pool-info" style="font-size:.82rem">
+            <div style="color:var(--dim);margin-bottom:8px">Tokens available in key_pool:</div>
+            <div class="m-val" id="dash-pool-count" style="color:var(--purple)">...</div>
+            <div class="pool-bar-wrap"><div class="pool-bar" id="dash-pool-bar" style="width:0%;background:var(--purple)"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:.65rem;color:var(--dim)">
+              <span>0</span><span id="dash-pool-target">Target: 300</span>
+            </div>
+            <div style="margin-top:12px">
+              <button class="btn btn-primary" onclick="triggerHarvest()" style="width:100%;padding:8px">&#9883; Harvest Now</button>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="glass">
-        <div class="card-title">⚡ SLA Performance — All Partners <span class="live-badge"><span class="live-dot"></span>LIVE</span></div>
-        <div id="sla-bars">
-          <div class="sla-row"><div class="sla-name">Quantum Engine</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:96%"></div></div><div class="sla-val">51ms</div></div>
-          <div class="sla-row"><div class="sla-name">ISO-20022 Convert</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:92%"></div></div><div class="sla-val">68ms</div></div>
-          <div class="sla-row"><div class="sla-name">PQC Signature</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:98%"></div></div><div class="sla-val">38ms</div></div>
-          <div class="sla-row"><div class="sla-name">QRNG Token Gen</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:99%"></div></div><div class="sla-val">22ms</div></div>
+        <div class="card-title">&#9889; SLA Performance &mdash; All Partners <span class="live-badge"><span class="live-dot"></span>LIVE</span></div>
+        <div>
+          <div class="sla-row"><div class="sla-name">Quantum Token (QRNG)</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:99%"></div></div><div class="sla-val" style="color:var(--green);font-family:'Space Mono',monospace;font-size:.68rem;flex-shrink:0;text-align:right;width:60px">22ms</div></div>
+          <div class="sla-row"><div class="sla-name">PQC Signature</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:98%"></div></div><div class="sla-val" style="color:var(--green);font-family:'Space Mono',monospace;font-size:.68rem;flex-shrink:0;text-align:right;width:60px">38ms</div></div>
+          <div class="sla-row"><div class="sla-name">ISO-20022 Convert</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:92%"></div></div><div class="sla-val" style="color:var(--green);font-family:'Space Mono',monospace;font-size:.68rem;flex-shrink:0;text-align:right;width:60px">68ms</div></div>
+          <div class="sla-row"><div class="sla-name">HMAC Integrity</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:100%"></div></div><div class="sla-val" style="color:var(--green);font-family:'Space Mono',monospace;font-size:.68rem;flex-shrink:0;text-align:right;width:60px">1ms</div></div>
         </div>
       </div>
     </div>
 
     <!-- ── PARTNERS TAB ── -->
     <div class="tab" id="tab-partners">
-
-      <!-- ── PENDING APPLICATIONS ── -->
-      <div class="glass" style="border-top:2px solid #ffcc00;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;">
+      <div class="glass" style="border-top:2px solid var(--yellow)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem">
           <div>
-            <div class="card-title" style="margin-bottom:2px;">⏳ Pending Applications <span style="background:rgba(255,200,0,0.15);color:#ffcc00;border-radius:10px;padding:2px 8px;font-size:0.7rem;font-weight:700;" id="pending-count">0</span></div>
-            <div style="font-size:0.72rem;color:var(--dim);">Banks who registered via Partner Portal — review and issue QRNG API keys</div>
+            <div class="card-title" style="margin-bottom:2px">&#8987; Pending Applications <span style="background:rgba(255,200,0,.15);color:var(--yellow);border-radius:10px;padding:2px 8px;font-size:.7rem;font-weight:700" id="pending-count">0</span></div>
+            <div style="font-size:.72rem;color:var(--dim)">Banks who registered &mdash; review and issue QRNG API keys</div>
           </div>
-          <button onclick="loadPendingPartners()" style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:0.8rem;">↻ Refresh</button>
+          <button onclick="loadPendingPartners()" class="btn btn-primary" style="padding:8px 16px">&#8635; Refresh</button>
         </div>
-        <div id="pending-list">
-          <div style="color:var(--dim);font-size:0.82rem;padding:1.5rem;text-align:center;border:1px dashed rgba(100,100,180,0.3);border-radius:8px;">Loading...</div>
+        <div id="pending-list"><div style="color:var(--dim);font-size:.82rem;padding:1.5rem;text-align:center">Loading...</div></div>
+      </div>
+
+      <div class="glass" style="border-top:2px solid var(--green)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem">
+          <div>
+            <div class="card-title" style="margin-bottom:2px">&#10003; Active Partners <span style="background:rgba(0,255,170,.15);color:var(--green);border-radius:10px;padding:2px 8px;font-size:.7rem;font-weight:700" id="approved-count">0</span></div>
+            <div style="font-size:.72rem;color:var(--dim)">All approved partner banks with full controls</div>
+          </div>
+          <input class="search-box" placeholder="&#128269; Search partner..." oninput="filterPartners(this.value)" style="width:220px"/>
+        </div>
+        <div class="glass" style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr>
+              <th>Partner</th><th>Plan</th><th>API Calls</th><th>Limit</th><th>Revenue</th><th>Status</th><th>Change Plan</th><th>Set Quota</th><th>Action</th>
+            </tr></thead>
+            <tbody id="partners-body">
+              <tr><td colspan="9" style="text-align:center;color:var(--dim);padding:20px">Loading...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- ── APPROVED / ACTIVE PARTNERS ── -->
-      <div class="glass" style="border-top:2px solid #00ffaa;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;">
-          <div>
-            <div class="card-title" style="margin-bottom:2px;">✅ Active Partners <span style="background:rgba(0,255,170,0.15);color:#00ffaa;border-radius:10px;padding:2px 8px;font-size:0.7rem;font-weight:700;" id="approved-count">0</span></div>
-            <div style="font-size:0.72rem;color:var(--dim);">Banks with issued API keys</div>
-          </div>
-        </div>
-        <div id="approved-list">
-          <div style="color:var(--dim);font-size:0.82rem;padding:1.5rem;text-align:center;border:1px dashed rgba(0,212,100,0.2);border-radius:8px;">Loading...</div>
-        </div>
-      </div>
-
-      <!-- ── ISSUE KEY MODAL ── -->
-      <div id="issue-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;">
-        <div style="background:#0f1117;border:1px solid rgba(0,245,255,0.2);border-radius:16px;padding:2rem;width:100%;max-width:480px;margin:2rem;">
-          <div style="font-size:1rem;font-weight:700;color:#fff;margin-bottom:1.5rem;">🔑 Issue QRNG API Key</div>
+      <!-- Issue Key Modal -->
+      <div id="issue-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center">
+        <div style="background:#0f1117;border:1px solid rgba(0,245,255,.2);border-radius:16px;padding:2rem;width:100%;max-width:480px;margin:2rem">
+          <div style="font-size:1rem;font-weight:700;color:#fff;margin-bottom:1.5rem">&#128273; Issue QRNG API Key</div>
           <input id="ik-email" type="hidden">
-          <div style="margin-bottom:1rem;">
-            <label style="font-size:0.75rem;color:var(--dim);display:block;margin-bottom:4px;">Partner Name</label>
-            <input id="ik-name" style="width:100%;background:#0a0a0f;border:1px solid rgba(0,245,255,0.15);border-radius:8px;padding:10px;color:#e0e0e0;font-size:0.875rem;box-sizing:border-box;" placeholder="Ravi Kumar">
+          <div style="margin-bottom:1rem">
+            <label style="font-size:.75rem;color:var(--dim);display:block;margin-bottom:4px">Partner Name</label>
+            <input id="ik-name" class="inp" style="width:100%" placeholder="Partner Name">
           </div>
-          <div style="margin-bottom:1rem;">
-            <label style="font-size:0.75rem;color:var(--dim);display:block;margin-bottom:4px;">Organisation</label>
-            <input id="ik-org" style="width:100%;background:#0a0a0f;border:1px solid rgba(0,245,255,0.15);border-radius:8px;padding:10px;color:#e0e0e0;font-size:0.875rem;box-sizing:border-box;" placeholder="HDFC Bank Ltd.">
+          <div style="margin-bottom:1rem">
+            <label style="font-size:.75rem;color:var(--dim);display:block;margin-bottom:4px">Organisation</label>
+            <input id="ik-org" class="inp" style="width:100%" placeholder="HDFC Bank Ltd.">
           </div>
-          <div style="margin-bottom:1.5rem;">
-            <label style="font-size:0.75rem;color:var(--dim);display:block;margin-bottom:8px;">Plan</label>
-            <div style="display:flex;gap:0.5rem;">
-              <label style="flex:1;background:#0a0a0f;border:1px solid rgba(0,245,255,0.1);border-radius:8px;padding:10px;text-align:center;cursor:pointer;">
-                <input type="radio" name="ik-plan" value="starter" checked style="margin-right:4px;">
-                <span style="font-size:0.8rem;color:#e0e0e0;">Starter</span><br>
-                <span style="font-size:0.7rem;color:var(--dim);">10k calls/mo</span>
+          <div style="margin-bottom:1.5rem">
+            <label style="font-size:.75rem;color:var(--dim);display:block;margin-bottom:8px">Plan</label>
+            <div style="display:flex;gap:.5rem">
+              <label style="flex:1;background:#0a0a0f;border:1px solid rgba(0,245,255,.1);border-radius:8px;padding:10px;text-align:center;cursor:pointer">
+                <input type="radio" name="ik-plan" value="starter" checked style="margin-right:4px"><span style="font-size:.8rem">Starter</span><br><span style="font-size:.7rem;color:var(--dim)">10k calls/mo</span>
               </label>
-              <label style="flex:1;background:#0a0a0f;border:1px solid rgba(0,245,255,0.1);border-radius:8px;padding:10px;text-align:center;cursor:pointer;">
-                <input type="radio" name="ik-plan" value="professional" style="margin-right:4px;">
-                <span style="font-size:0.8rem;color:#e0e0e0;">Professional</span><br>
-                <span style="font-size:0.7rem;color:var(--dim);">500k calls/mo</span>
+              <label style="flex:1;background:#0a0a0f;border:1px solid rgba(0,245,255,.1);border-radius:8px;padding:10px;text-align:center;cursor:pointer">
+                <input type="radio" name="ik-plan" value="professional" style="margin-right:4px"><span style="font-size:.8rem">Professional</span><br><span style="font-size:.7rem;color:var(--dim)">500k calls/mo</span>
               </label>
-              <label style="flex:1;background:#0a0a0f;border:1px solid rgba(0,245,255,0.1);border-radius:8px;padding:10px;text-align:center;cursor:pointer;">
-                <input type="radio" name="ik-plan" value="enterprise" style="margin-right:4px;">
-                <span style="font-size:0.8rem;color:#e0e0e0;">Enterprise</span><br>
-                <span style="font-size:0.7rem;color:var(--dim);">Unlimited</span>
+              <label style="flex:1;background:#0a0a0f;border:1px solid rgba(0,245,255,.1);border-radius:8px;padding:10px;text-align:center;cursor:pointer">
+                <input type="radio" name="ik-plan" value="enterprise" style="margin-right:4px"><span style="font-size:.8rem">Enterprise</span><br><span style="font-size:.7rem;color:var(--dim)">Unlimited</span>
               </label>
             </div>
           </div>
-          <div style="display:flex;gap:1rem;">
-            <button onclick="document.getElementById('issue-modal').style.display='none'" style="flex:1;background:#0a0a0f;border:1px solid rgba(0,245,255,0.1);border-radius:8px;padding:12px;color:#a0a0b0;cursor:pointer;">Cancel</button>
-            <button onclick="confirmIssueKey()" id="issue-btn" style="flex:2;background:linear-gradient(135deg,#00d4ff,#7b2fff);border:none;border-radius:8px;padding:12px;color:#fff;font-weight:700;cursor:pointer;">Issue QRNG API Key →</button>
+          <div style="display:flex;gap:1rem">
+            <button onclick="document.getElementById('issue-modal').style.display='none'" style="flex:1;background:#0a0a0f;border:1px solid rgba(0,245,255,.1);border-radius:8px;padding:12px;color:#a0a0b0;cursor:pointer">Cancel</button>
+            <button onclick="confirmIssueKey()" id="issue-btn" class="btn btn-primary" style="flex:2;padding:12px;font-size:.9rem">Issue QRNG API Key &rarr;</button>
           </div>
-          <div id="issue-result" style="margin-top:1rem;font-size:0.8rem;"></div>
+          <div id="issue-result" style="margin-top:1rem;font-size:.8rem"></div>
         </div>
       </div>
+    </div>
 
-      <!-- ── REGISTERED PARTNERS TABLE ── -->
-      <div class="glass">
-        <div class="card-title">🏦 Registered B2B Partner Banks <span class="live-badge"><span class="live-dot"></span>LIVE DB</span></div>
-        <table class="tbl">
-          <thead><tr>
-            <th>Partner Name</th>
-            <th>API Key</th>
-            <th>Webhook</th>
-            <th>Plan</th>
-            <th>Total API Calls</th>
-            <th>Revenue (₹)</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr></thead>
-          <tbody id="partners-body">
-            <tr><td colspan="8" style="text-align:center;color:var(--dim);padding:20px">Loading...</td></tr>
-          </tbody>
-        </table>
+    <!-- ── USERS TAB ── -->
+    <div class="tab" id="tab-users">
+      <div class="three-col">
+        <div class="glass" style="border-bottom:2px solid var(--cyan)">
+          <div class="m-icon">&#128100;</div>
+          <div class="m-val" id="u-total" style="color:var(--cyan)">0</div>
+          <div class="m-label">Total Registered Users</div>
+        </div>
+        <div class="glass" style="border-bottom:2px solid var(--green)">
+          <div class="m-icon">&#128272;</div>
+          <div class="m-val" id="u-admins" style="color:var(--green)">0</div>
+          <div class="m-label">Admin Accounts</div>
+        </div>
+        <div class="glass" style="border-bottom:2px solid var(--yellow)">
+          <div class="m-icon">&#128176;</div>
+          <div class="m-val" id="u-balance" style="color:var(--yellow)">&#8377;0</div>
+          <div class="m-label">Total Platform Balance</div>
+        </div>
       </div>
       <div class="glass">
-        <div class="card-title">📋 Onboarding Instructions</div>
-        <div style="font-size:.82rem;color:var(--dim);line-height:1.8">
-          <p>1. A partner bank registers on the <strong style="color:var(--cyan)">B2B Portal</strong> and receives a QRNG-generated API key.</p>
-          <p>2. They authenticate every request using <code style="background:rgba(0,245,255,.08);padding:1px 6px;border-radius:4px;color:var(--cyan)">X-API-Key: their_key</code> in the HTTP header.</p>
-          <p>3. Every ISO-20022 conversion call is logged to the Quantum Audit Ledger.</p>
-          <p>4. You can revoke or reactivate any partner's access from this dashboard instantly.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">&#128100; All Registered Users <span class="live-badge"><span class="live-dot"></span>LIVE DB</span></div>
+          <input class="search-box" placeholder="&#128269; Search by name/UPI..." oninput="filterUsers(this.value)" style="width:220px"/>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr><th>Name</th><th>UPI ID</th><th>Email</th><th>Balance</th><th>Role</th><th>Registered</th></tr></thead>
+            <tbody id="users-body">
+              <tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">Loading users...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TRANSACTIONS TAB ── -->
+    <div class="tab" id="tab-transactions">
+      <div class="glass">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">&#9889; All Platform Transactions <span class="live-badge"><span class="live-dot"></span>LIVE DB</span></div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input class="search-box" placeholder="&#128269; Search by TX ID..." oninput="filterTxns(this.value)" style="width:200px"/>
+            <button class="btn btn-primary" onclick="loadTransactions()">&#8635; Refresh</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr><th>TX ID</th><th>Sender</th><th>Receiver</th><th>Amount</th><th>Token</th><th>Status</th><th>Time</th></tr></thead>
+            <tbody id="txns-body">
+              <tr><td colspan="7" style="text-align:center;color:var(--dim);padding:20px">Loading transactions...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="text-align:center;margin-top:14px">
+          <button class="btn btn-warn" id="txns-more" onclick="loadMoreTxns()" style="padding:8px 24px">Load More &darr;</button>
         </div>
       </div>
     </div>
@@ -406,101 +409,141 @@
     <div class="tab" id="tab-revenue">
       <div class="three-col">
         <div class="glass" style="border-bottom:2px solid var(--yellow)">
-          <div class="m-icon">💰</div>
-          <div class="m-val" style="color:var(--yellow)" id="rev-total">₹0</div>
+          <div class="m-icon">&#128176;</div>
+          <div class="m-val" style="color:var(--yellow)" id="rev-total">&#8377;0</div>
           <div class="m-label">Total Platform Revenue</div>
           <div class="m-delta pos">Since Launch</div>
         </div>
         <div class="glass" style="border-bottom:2px solid var(--cyan)">
-          <div class="m-icon">🏦</div>
+          <div class="m-icon">&#127970;</div>
           <div class="m-val" style="color:var(--cyan)" id="rev-partners">0</div>
           <div class="m-label">Paying Partners</div>
           <div class="m-delta pos">Active contracts</div>
         </div>
         <div class="glass" style="border-bottom:2px solid var(--green)">
-          <div class="m-icon">⚡</div>
+          <div class="m-icon">&#9889;</div>
           <div class="m-val" style="color:var(--green)" id="rev-calls">0</div>
           <div class="m-label">Total API Calls Billed</div>
           <div class="m-delta pos">ISO-20022 conversions</div>
         </div>
       </div>
       <div class="glass">
-        <div class="card-title">💰 Revenue Per Partner</div>
+        <div class="card-title">&#128176; Revenue Per Partner</div>
         <table class="tbl">
-          <thead><tr>
-            <th>Partner</th>
-            <th>Plan</th>
-            <th>API Calls</th>
-            <th>Rate</th>
-            <th>Revenue (₹)</th>
-            <th>Status</th>
-          </tr></thead>
+          <thead><tr><th>Partner</th><th>Org</th><th>Plan</th><th>API Calls</th><th>Rate</th><th>Revenue (&#8377;)</th><th>Status</th></tr></thead>
           <tbody id="rev-body">
-            <tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">Loading revenue data...</td></tr>
+            <tr><td colspan="7" style="text-align:center;color:var(--dim);padding:20px">Loading revenue data...</td></tr>
           </tbody>
         </table>
       </div>
       <div class="glass">
-        <div class="card-title">📊 Pricing Model</div>
+        <div class="card-title">&#128202; Pricing Model</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
           <div style="text-align:center;padding:16px;background:var(--bg3);border-radius:12px;border:1px solid var(--border)">
-            <div style="font-size:1.4rem;font-weight:800;color:var(--cyan)">₹2</div>
+            <div style="font-size:1.4rem;font-weight:800;color:var(--cyan)">&#8377;2</div>
             <div style="font-size:.75rem;color:var(--dim);margin-top:4px">Per API Call</div>
             <div style="font-size:.68rem;color:var(--green);margin-top:6px">Starter Plan</div>
           </div>
           <div style="text-align:center;padding:16px;background:var(--bg3);border-radius:12px;border:1px solid var(--border)">
-            <div style="font-size:1.4rem;font-weight:800;color:var(--yellow)">₹1.5</div>
+            <div style="font-size:1.4rem;font-weight:800;color:var(--yellow)">&#8377;1.5</div>
             <div style="font-size:.75rem;color:var(--dim);margin-top:4px">Per API Call</div>
-            <div style="font-size:.68rem;color:var(--yellow);margin-top:6px">Enterprise (1k+ calls)</div>
+            <div style="font-size:.68rem;color:var(--yellow);margin-top:6px">Professional Plan</div>
           </div>
           <div style="text-align:center;padding:16px;background:var(--bg3);border-radius:12px;border:1px solid var(--border)">
             <div style="font-size:1.4rem;font-weight:800;color:var(--purple)">Custom</div>
             <div style="font-size:.75rem;color:var(--dim);margin-top:4px">Negotiated Rate</div>
-            <div style="font-size:.68rem;color:var(--purple);margin-top:6px">Bank-Level (10k+)</div>
+            <div style="font-size:.68rem;color:var(--purple);margin-top:6px">Enterprise Plan</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ── SLA MONITOR TAB ── -->
+    <!-- ── IBM POOL TAB ── -->
+    <div class="tab" id="tab-ibmpool">
+      <div class="four-col">
+        <div class="glass" style="border-bottom:2px solid var(--purple)">
+          <div class="m-icon">&#9883;</div>
+          <div class="m-val" id="pool-available" style="color:var(--purple)">...</div>
+          <div class="m-label">Tokens Available</div>
+          <div class="m-delta" id="pool-status-text">Checking...</div>
+        </div>
+        <div class="glass" style="border-bottom:2px solid var(--cyan)">
+          <div class="m-icon">&#128202;</div>
+          <div class="m-val" id="pool-target" style="color:var(--cyan)">300</div>
+          <div class="m-label">Monthly Target</div>
+          <div class="m-delta pos">IBM Quantum quota</div>
+        </div>
+        <div class="glass" style="border-bottom:2px solid var(--green)">
+          <div class="m-icon">&#127982;</div>
+          <div class="m-val" id="pool-ibm-chunks" style="color:var(--green)">...</div>
+          <div class="m-label">IBM Entropy Chunks</div>
+          <div class="m-delta pos">Raw QPU data stored</div>
+        </div>
+        <div class="glass" style="border-bottom:2px solid var(--yellow)">
+          <div class="m-icon">&#8987;</div>
+          <div class="m-val" id="pool-last-harvest" style="color:var(--yellow);font-size:.9rem">...</div>
+          <div class="m-label">Last Harvest</div>
+          <div class="m-delta pos">ibm_marrakesh QPU</div>
+        </div>
+      </div>
+
+      <div class="glass">
+        <div class="card-title">&#9883; Quantum Pool Health</div>
+        <div style="margin-bottom:6px;font-size:.78rem;color:var(--dim)">Pool fill level (available / monthly target):</div>
+        <div class="pool-bar-wrap" style="height:20px">
+          <div class="pool-bar" id="pool-health-bar" style="width:0%;background:var(--purple)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--dim);margin-bottom:20px">
+          <span>Empty</span><span id="pool-pct">0%</span><span>Full (300)</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <button class="btn btn-primary" onclick="triggerHarvest()" style="padding:14px;font-size:.9rem" id="harvest-btn">
+            &#9883; Trigger IBM Harvest Now
+          </button>
+          <button class="btn btn-warn" onclick="loadIBMPoolStatus()" style="padding:14px;font-size:.9rem">
+            &#8635; Refresh Pool Status
+          </button>
+        </div>
+        <div id="harvest-result" style="margin-top:12px;font-size:.8rem;display:none;padding:12px;border-radius:8px;background:var(--bg3)"></div>
+      </div>
+
+      <div class="glass">
+        <div class="card-title">&#128462; IBM Entropy Raw Pool <span class="live-badge"><span class="live-dot"></span>LIVE DB</span></div>
+        <div id="ibm-pool-detail" style="font-size:.78rem;color:var(--dim)">Click Refresh to load IBM entropy pool details...</div>
+      </div>
+    </div>
+
+    <!-- ── SLA TAB ── -->
     <div class="tab" id="tab-sla">
       <div class="glass">
-        <div class="card-title">⚡ Real-Time SLA Monitoring — Quantum Engine Performance</div>
-        <div id="sla-full-bars" style="display:flex;flex-direction:column;gap:14px">
-          <div class="sla-row"><div class="sla-name">Quantum Token (QRNG)</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:99%"></div></div><div class="sla-val" style="color:var(--green)">22ms ✓</div></div>
-          <div class="sla-row"><div class="sla-name">PQC Signature (Dilithium)</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:98%"></div></div><div class="sla-val" style="color:var(--green)">38ms ✓</div></div>
-          <div class="sla-row"><div class="sla-name">KEM (Kyber-1024)</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:96%"></div></div><div class="sla-val" style="color:var(--green)">51ms ✓</div></div>
-          <div class="sla-row"><div class="sla-name">ISO-20022 Conversion</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:92%"></div></div><div class="sla-val" style="color:var(--green)">68ms ✓</div></div>
-          <div class="sla-row"><div class="sla-name">Zero-Trust Watchdog</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:100%"></div></div><div class="sla-val" style="color:var(--green)">3ms ✓</div></div>
-          <div class="sla-row"><div class="sla-name">HMAC Integrity Check</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:100%"></div></div><div class="sla-val" style="color:var(--green)">1ms ✓</div></div>
+        <div class="card-title">&#9889; Real-Time SLA Monitoring &mdash; Quantum Engine Performance</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="sla-row"><div class="sla-name">Quantum Token (QRNG)</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:99%"></div></div><div style="color:var(--green);font-family:'Space Mono',monospace;font-size:.68rem;flex-shrink:0;width:80px;text-align:right">22ms &check;</div></div>
+          <div class="sla-row"><div class="sla-name">PQC Signature (Dilithium)</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:98%"></div></div><div style="color:var(--green);font-family:'Space Mono',monospace;font-size:.68rem;flex-shrink:0;width:80px;text-align:right">38ms &check;</div></div>
+          <div class="sla-row"><div class="sla-name">KEM (Kyber-1024)</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:96%"></div></div><div style="color:var(--green);font-family:'Space Mono',monospace;font-size:.68rem;flex-shrink:0;width:80px;text-align:right">51ms &check;</div></div>
+          <div class="sla-row"><div class="sla-name">ISO-20022 Conversion</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:92%"></div></div><div style="color:var(--green);font-family:'Space Mono',monospace;font-size:.68rem;flex-shrink:0;width:80px;text-align:right">68ms &check;</div></div>
+          <div class="sla-row"><div class="sla-name">Zero-Trust Watchdog</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:100%"></div></div><div style="color:var(--green);font-family:'Space Mono',monospace;font-size:.68rem;flex-shrink:0;width:80px;text-align:right">3ms &check;</div></div>
+          <div class="sla-row"><div class="sla-name">HMAC Integrity Check</div><div class="sla-bar-wrap"><div class="sla-bar" style="width:100%"></div></div><div style="color:var(--green);font-family:'Space Mono',monospace;font-size:.68rem;flex-shrink:0;width:80px;text-align:right">1ms &check;</div></div>
         </div>
       </div>
       <div class="three-col">
-        <div class="glass" style="border-bottom:2px solid var(--green)">
-          <div class="m-icon">🎯</div>
-          <div class="m-val" style="color:var(--green)">99.97%</div>
-          <div class="m-label">Uptime SLA</div>
-          <div class="m-delta pos">Railway Infrastructure</div>
-        </div>
-        <div class="glass" style="border-bottom:2px solid var(--cyan)">
-          <div class="m-icon">⚡</div>
-          <div class="m-val" style="color:var(--cyan)">51ms</div>
-          <div class="m-label">Guaranteed Response</div>
-          <div class="m-delta pos">Contractual commitment</div>
-        </div>
-        <div class="glass" style="border-bottom:2px solid var(--yellow)">
-          <div class="m-icon">🔐</div>
-          <div class="m-val" style="color:var(--yellow)">NIST</div>
-          <div class="m-label">PQC Certification</div>
-          <div class="m-delta pos">FIPS 203 / FIPS 204</div>
-        </div>
+        <div class="glass" style="border-bottom:2px solid var(--green)"><div class="m-icon">&#127919;</div><div class="m-val" style="color:var(--green)">99.97%</div><div class="m-label">Uptime SLA</div><div class="m-delta pos">Railway Infrastructure</div></div>
+        <div class="glass" style="border-bottom:2px solid var(--cyan)"><div class="m-icon">&#9889;</div><div class="m-val" style="color:var(--cyan)">51ms</div><div class="m-label">Guaranteed Response</div><div class="m-delta pos">Contractual commitment</div></div>
+        <div class="glass" style="border-bottom:2px solid var(--yellow)"><div class="m-icon">&#128272;</div><div class="m-val" style="color:var(--yellow)">NIST</div><div class="m-label">PQC Certification</div><div class="m-delta pos">FIPS 203 / FIPS 204</div></div>
       </div>
     </div>
 
     <!-- ── AUDIT LEDGER TAB ── -->
     <div class="tab" id="tab-audit">
       <div class="glass">
-        <div class="card-title">⛓ Quantum Audit Blockchain — Immutable Ledger <span class="live-badge"><span class="live-dot"></span>LIVE</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">&#9935; Quantum Audit Blockchain &mdash; Immutable Ledger <span class="live-badge"><span class="live-dot"></span>LIVE</span></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-warn" onclick="verifyLedger()" style="padding:6px 14px">&#10003; Verify Integrity</button>
+            <button class="btn btn-primary" onclick="exportCompliance()" style="padding:6px 14px">&#128462; Export</button>
+          </div>
+        </div>
+        <div id="ledger-verify-result" style="display:none;margin-bottom:12px;padding:10px;border-radius:8px;font-size:.8rem"></div>
         <div class="audit-chain" id="audit-chain">
           <div style="text-align:center;color:var(--dim);padding:20px">Loading audit ledger...</div>
         </div>
@@ -510,48 +553,125 @@
     <!-- ── THREAT INTEL TAB ── -->
     <div class="tab" id="tab-threats">
       <div class="metrics-grid">
-        <div class="metric" style="--c:#ff6b6b">
-          <div class="m-icon">🛡</div>
-          <div class="m-val" id="t-blocked">0</div>
-          <div class="m-label">Attacks Blocked</div>
-          <div class="m-delta pos">Real DB count</div>
-        </div>
-        <div class="metric" style="--c:#ffcc00">
-          <div class="m-icon">🔬</div>
-          <div class="m-val" id="t-anomalies">0</div>
-          <div class="m-label">Anomalies Detected</div>
-          <div class="m-delta pos">Behavioral AI</div>
-        </div>
-        <div class="metric" style="--c:#00ffaa">
-          <div class="m-icon">🔐</div>
-          <div class="m-val" id="t-audits">0</div>
-          <div class="m-label">Audit Events</div>
-          <div class="m-delta pos">Blockchain recorded</div>
-        </div>
-        <div class="metric" style="--c:#7b2fff">
-          <div class="m-icon">⚛</div>
-          <div class="m-val">PQC</div>
-          <div class="m-label">Encryption Layer</div>
-          <div class="m-delta pos">Kyber-1024 Active</div>
-        </div>
+        <div class="metric" style="--c:#ff6b6b"><div class="m-icon">&#128737;</div><div class="m-val" id="t-blocked">0</div><div class="m-label">Attacks Blocked</div><div class="m-delta pos">Real DB count</div></div>
+        <div class="metric" style="--c:#ffcc00"><div class="m-icon">&#128302;</div><div class="m-val" id="t-anomalies">0</div><div class="m-label">Anomalies Detected</div><div class="m-delta pos">Behavioral AI</div></div>
+        <div class="metric" style="--c:#00ffaa"><div class="m-icon">&#128272;</div><div class="m-val" id="t-audits">0</div><div class="m-label">Audit Events</div><div class="m-delta pos">Blockchain recorded</div></div>
+        <div class="metric" style="--c:#7b2fff"><div class="m-icon">&#9883;</div><div class="m-val">PQC</div><div class="m-label">Encryption Layer</div><div class="m-delta pos">Kyber-1024 Active</div></div>
       </div>
       <div class="glass">
-        <div class="card-title">🛡 Threat Intelligence Log <span class="live-badge"><span class="live-dot"></span>LIVE</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">&#128737; Threat Intelligence Log <span class="live-badge"><span class="live-dot"></span>AUTO-REFRESH 10s</span></div>
+          <button class="btn btn-danger" onclick="simulateThreat()" style="padding:6px 14px">&#128683; Simulate Threat</button>
+        </div>
         <table class="tbl" id="threat-table">
-          <thead><tr><th>Time</th><th>Attack Type</th><th>Source</th><th>Layer</th><th>Status</th><th>Response</th></tr></thead>
+          <thead><tr><th>Time</th><th>Attack Type</th><th>Source IP</th><th>Layer</th><th>Status</th><th>Response</th></tr></thead>
           <tbody id="threat-body">
             <tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">No threats recorded. System secure.</td></tr>
           </tbody>
         </table>
       </div>
     </div>
-  </div>
-</div>
+
+    <!-- ── SECURITY TOOLS TAB ── -->
+    <div class="tab" id="tab-security">
+      <div class="two-col">
+        <div class="glass">
+          <div class="card-title">&#128203; Shamir Shard Verifier</div>
+          <div style="font-size:.78rem;color:var(--dim);margin-bottom:12px">Verify that any 2-of-3 Shamir shards reconstruct the original API key correctly.</div>
+          <div style="margin-bottom:10px">
+            <label style="font-size:.72rem;color:var(--dim);display:block;margin-bottom:4px">Shard A (hex)</label>
+            <input id="shard-a" class="inp" style="width:100%" placeholder="Enter Shard A hex...">
+          </div>
+          <div style="margin-bottom:14px">
+            <label style="font-size:.72rem;color:var(--dim);display:block;margin-bottom:4px">Shard B (hex)</label>
+            <input id="shard-b" class="inp" style="width:100%" placeholder="Enter Shard B hex...">
+          </div>
+          <button class="btn btn-primary" onclick="verifyShards()" style="width:100%;padding:10px">&#10003; Verify Shamir Reconstruction</button>
+          <div id="shard-result" style="margin-top:10px;font-size:.8rem;display:none;padding:10px;border-radius:8px;background:var(--bg3)"></div>
+        </div>
+        <div class="glass">
+          <div class="card-title">&#128462; Compliance Export</div>
+          <div style="font-size:.78rem;color:var(--dim);margin-bottom:16px">Download the full compliance certificate for RBI, NPCI or ISO 20022 audits.</div>
+          <button class="btn btn-warn" onclick="exportCompliance()" style="width:100%;padding:10px;margin-bottom:10px">&#128462; Export Compliance Certificate</button>
+          <button class="btn btn-primary" onclick="verifyLedger()" style="width:100%;padding:10px">&#10003; Verify Blockchain Ledger</button>
+          <div id="compliance-result" style="margin-top:10px;font-size:.75rem;display:none;padding:10px;border-radius:8px;background:var(--bg3);max-height:300px;overflow-y:auto;white-space:pre-wrap;font-family:'Space Mono',monospace;word-break:break-all"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SYSTEM CONTROLS TAB ── -->
+    <div class="tab" id="tab-alerts">
+      <div class="glass">
+        <div class="card-title">&#128683; System Maintenance Mode</div>
+        <div style="font-size:.78rem;color:var(--dim);margin-bottom:16px">Toggle maintenance mode to take the API offline for updates. All partner API calls will receive a 503 response.</div>
+        <div class="toggle-wrap" style="margin-bottom:20px">
+          <label class="toggle">
+            <input type="checkbox" id="maint-toggle" onchange="toggleMaintenance(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="maint-label" style="font-size:.9rem;font-weight:600">Maintenance Mode: OFF</span>
+        </div>
+        <div id="maint-result" style="font-size:.8rem;color:var(--dim)"></div>
+      </div>
+      <div class="glass">
+        <div class="card-title">&#128680; Alert Configuration</div>
+        <div style="font-size:.78rem;color:var(--dim);margin-bottom:16px">Configure email and webhook alerts for security events and pool depletion.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <label style="font-size:.72rem;color:var(--dim);display:block;margin-bottom:4px">Alert Email</label>
+            <input id="alert-email" class="inp" style="width:100%" placeholder="admin@yourcompany.com">
+          </div>
+          <div>
+            <label style="font-size:.72rem;color:var(--dim);display:block;margin-bottom:4px">Alert Webhook URL</label>
+            <input id="alert-webhook" class="inp" style="width:100%" placeholder="https://hooks.slack.com/...">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <label style="font-size:.72rem;color:var(--dim);display:block;margin-bottom:4px">Pool Low Threshold</label>
+            <input id="alert-threshold" class="inp" style="width:100%" placeholder="50" type="number">
+          </div>
+          <div>
+            <label style="font-size:.72rem;color:var(--dim);display:block;margin-bottom:4px">Alert on Attack Type</label>
+            <select id="alert-type" class="inp" style="width:100%">
+              <option value="all">All Attacks</option>
+              <option value="MITM">MITM Only</option>
+              <option value="brute_force">Brute Force Only</option>
+              <option value="replay">Replay Attacks</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveAlertConfig()" style="width:100%;padding:10px">&#128190; Save Alert Configuration</button>
+        <div id="alert-result" style="margin-top:10px;font-size:.8rem;display:none;padding:10px;border-radius:8px;background:var(--bg3)"></div>
+      </div>
+      <div class="glass">
+        <div class="card-title">&#128202; System Info</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.78rem">
+          <div style="color:var(--dim)">Backend Version</div><div style="color:var(--cyan)">QuantumPay v5.2</div>
+          <div style="color:var(--dim)">Quantum Engine</div><div style="color:var(--cyan)">IBM Marrakesh 156-qubit QPU</div>
+          <div style="color:var(--dim)">Entropy Sources</div><div style="color:var(--green)">IBM + ANU + OS-CSPRNG</div>
+          <div style="color:var(--dim)">Mixing Protocol</div><div style="color:var(--green)">HKDF-SHA3-256</div>
+          <div style="color:var(--dim)">PQC Standard</div><div style="color:var(--yellow)">NIST FIPS 203 / 204</div>
+          <div style="color:var(--dim)">Deployed On</div><div style="color:var(--cyan)">Railway (Docker)</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
 
 <script>
 'use strict';
 const API = '';
-const TITLES = {dashboard:'B2B Dashboard',partners:'Partner Banks',revenue:'Revenue',sla:'SLA Monitor',audit:'Audit Ledger',threats:'Threat Intel'};
+const adminToken = sessionStorage.getItem('qp_token') || localStorage.getItem('token') || '';
+const TITLES = {
+  dashboard:'B2B Dashboard', partners:'Partner Banks', users:'All Users',
+  transactions:'All Transactions', revenue:'Revenue', ibmpool:'IBM Quantum Pool',
+  sla:'SLA Monitor', audit:'Audit Ledger', threats:'Threat Intel',
+  security:'Security Tools', alerts:'System Controls'
+};
+
+let allUsers = [], allTxns = [], allPartners = [], txnOffset = 0;
 
 // Background canvas
 (function(){
@@ -564,291 +684,506 @@ const TITLES = {dashboard:'B2B Dashboard',partners:'Partner Banks',revenue:'Reve
 // Clock
 setInterval(()=>{const e=document.getElementById('clock');if(e)e.textContent=new Date().toLocaleTimeString('en-IN',{hour12:false})},1000);
 
+function setEl(id,val){const e=document.getElementById(id);if(e)e.textContent=val;}
+
 function showTab(id,el){
-  if(id==='partners'){loadPendingPartners();}
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
   if(el)el.classList.add('active');
   document.getElementById('tab-title').textContent=TITLES[id]||id;
+  if(id==='partners')loadPendingPartners();
+  if(id==='users')loadUsers();
+  if(id==='transactions')loadTransactions();
+  if(id==='ibmpool')loadIBMPoolStatus();
+  if(id==='audit')loadAudit();
+  if(id==='threats')loadThreats();
+  if(id==='revenue')loadPartnerStats();
 }
 
-// Load partner data
+// ── Partner Stats ────────────────────────────────────────────────────────────
 async function loadPartnerStats(){
   try{
-    const r=await fetch(`${API}/api/admin/partners/stats`,{credentials:'include'});
+    const r=await fetch(`${API}/api/admin/partners/stats`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
     if(!r.ok)return;
-    const partners=await r.json();
-
-    const badge=document.getElementById('sb-partners');
-    if(badge)badge.textContent=partners.filter(p=>p.is_active).length;
-
-    // Dashboard metrics
-    const activeCount=partners.filter(p=>p.is_active).length;
-    const totalCalls=partners.reduce((s,p)=>s+p.api_calls_total,0);
-    const totalRev=partners.reduce((s,p)=>s+p.revenue_inr,0);
-    setEl('m-partners',activeCount);
+    allPartners=await r.json();
+    const active=allPartners.filter(p=>p.is_active).length;
+    const totalCalls=allPartners.reduce((s,p)=>s+p.api_calls_total,0);
+    const totalRev=allPartners.reduce((s,p)=>s+p.revenue_inr,0);
+    setEl('m-partners',active);
     setEl('m-apicalls',totalCalls.toLocaleString());
-    setEl('m-revenue','₹'+totalRev.toLocaleString());
-
-    // Dashboard partner mini-table
-    const dashBody=document.getElementById('dash-partners-body');
-    if(dashBody){
-      if(partners.length===0){
-        dashBody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:20px">No B2B partners yet. <a href="b2b.html" style="color:var(--cyan)">Register a partner →</a></td></tr>';
-      } else {
-        dashBody.innerHTML=partners.map(p=>`<tr>
-          <td><strong>${p.name}</strong></td>
-          <td><span class="pill ${p.plan==='Enterprise'?'cyan':'yellow'}">${p.plan}</span></td>
-          <td class="mono">${p.api_calls_total.toLocaleString()}</td>
-          <td class="mono" style="color:var(--yellow)">₹${p.revenue_inr.toLocaleString()}</td>
-          <td><span class="pill ${p.is_active?'green':'red'}">${p.is_active?'ACTIVE':'REVOKED'}</span></td>
-        </tr>`).join('');
-      }
+    setEl('m-revenue','&#8377;'+totalRev.toLocaleString());
+    setEl('sb-partners',active);
+    // Dashboard mini table
+    const db=document.getElementById('dash-partners-body');
+    if(db){
+      if(!allPartners.length){db.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:20px">No B2B partners yet.</td></tr>';}
+      else{db.innerHTML=allPartners.map(p=>`<tr>
+        <td><strong>${p.name}</strong></td>
+        <td><span class="pill ${p.plan==='enterprise'||p.plan==='Enterprise'?'cyan':p.plan==='professional'||p.plan==='Professional'?'purple':'yellow'}">${p.plan}</span></td>
+        <td class="mono">${(p.api_calls_total||0).toLocaleString()}</td>
+        <td class="mono" style="color:var(--yellow)">&#8377;${(p.revenue_inr||0).toLocaleString()}</td>
+        <td><span class="pill ${p.is_active?'green':'red'}">${p.is_active?'ACTIVE':'REVOKED'}</span></td>
+      </tr>`).join('');}
     }
-
-    // Revenue breakdown
-    const revBreak=document.getElementById('revenue-breakdown');
-    if(revBreak && partners.length>0){
-      revBreak.innerHTML=partners.map(p=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:.78rem;padding:6px 0;border-bottom:1px solid var(--border)">
-          <span>${p.name}</span>
-          <span style="color:var(--yellow);font-family:'Space Mono',monospace">₹${p.revenue_inr.toLocaleString()}</span>
-        </div>`).join('');
-    }
-
-    // Partners full table
-    const body=document.getElementById('partners-body');
-    if(body){
-      if(partners.length===0){
-        body.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:30px">No B2B partners registered yet. Go to the B2B Portal to register a bank.</td></tr>';
-      } else {
-        body.innerHTML=partners.map(p=>`<tr>
-          <td><strong>${p.name}</strong></td>
-          <td class="mono">${p.api_key_masked}</td>
-          <td style="color:var(--dim);font-size:.72rem">${p.webhook||'—'}</td>
-          <td><span class="pill ${p.plan==='Enterprise'?'cyan':'yellow'}">${p.plan}</span></td>
-          <td class="mono">${p.api_calls_total.toLocaleString()}</td>
-          <td class="mono" style="color:var(--yellow)">₹${p.revenue_inr.toLocaleString()}</td>
-          <td><span class="pill ${p.is_active?'green':'red'}">${p.is_active?'ACTIVE':'REVOKED'}</span></td>
-          <td>${p.is_active
-            ? `<button class="btn btn-revoke" onclick="revokePartner('${p.id}')">Revoke</button>`
-            : `<button class="btn btn-activate" onclick="activatePartner('${p.id}')">Activate</button>`
-          }</td>
-        </tr>`).join('');
-      }
-    }
-
     // Revenue tab
-    setEl('rev-total','₹'+totalRev.toLocaleString());
-    setEl('rev-partners',activeCount);
+    setEl('rev-total','&#8377;'+totalRev.toLocaleString());
+    setEl('rev-partners',active);
     setEl('rev-calls',totalCalls.toLocaleString());
-    const revBody=document.getElementById('rev-body');
-    if(revBody){
-      if(partners.length===0){
-        revBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">No revenue data yet.</td></tr>';
-      } else {
-        revBody.innerHTML=partners.map(p=>`<tr>
-          <td><strong>${p.name}</strong></td>
-          <td><span class="pill ${p.plan==='Enterprise'?'cyan':'yellow'}">${p.plan}</span></td>
-          <td class="mono">${p.api_calls_total.toLocaleString()}</td>
-          <td class="mono" style="color:var(--dim)">₹${p.plan==='Enterprise'?'1.50':'2.00'}/call</td>
-          <td class="mono" style="color:var(--yellow);font-weight:700">₹${p.revenue_inr.toLocaleString()}</td>
-          <td><span class="pill ${p.is_active?'green':'red'}">${p.is_active?'ACTIVE':'REVOKED'}</span></td>
-        </tr>`).join('');
-      }
-    }
+    renderPartnersFullTable(allPartners);
+    renderRevTable(allPartners);
+  }catch(e){console.warn('Partner stats error:',e);}
+}
 
-  } catch(e){ console.warn('Partner stats error:',e); }
+function renderPartnersFullTable(partners){
+  const body=document.getElementById('partners-body');
+  if(!body)return;
+  if(!partners.length){body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--dim);padding:30px">No active partners yet.</td></tr>';return;}
+  body.innerHTML=partners.map(p=>`<tr data-name="${(p.name||'').toLowerCase()}" data-org="${(p.org_name||'').toLowerCase()}">
+    <td><strong>${p.name||'—'}</strong><br><span style="font-size:.65rem;color:var(--dim)">${p.org_name||''}</span></td>
+    <td><span class="pill ${p.plan==='enterprise'||p.plan==='Enterprise'?'cyan':p.plan==='professional'||p.plan==='Professional'?'purple':'yellow'}">${p.plan}</span></td>
+    <td class="mono">${(p.api_calls_total||0).toLocaleString()}</td>
+    <td class="mono">${(p.api_calls_limit||0).toLocaleString()}</td>
+    <td class="mono" style="color:var(--yellow)">&#8377;${(p.revenue_inr||0).toLocaleString()}</td>
+    <td><span class="pill ${p.is_active?'green':'red'}">${p.is_active?'ACTIVE':'REVOKED'}</span></td>
+    <td>
+      <select class="inp" style="font-size:.68rem;padding:3px 6px" onchange="changePlan('${p.id}',this.value)">
+        <option value="starter" ${(p.plan||'').toLowerCase()==='starter'?'selected':''}>Starter</option>
+        <option value="professional" ${(p.plan||'').toLowerCase()==='professional'?'selected':''}>Professional</option>
+        <option value="enterprise" ${(p.plan||'').toLowerCase()==='enterprise'?'selected':''}>Enterprise</option>
+      </select>
+    </td>
+    <td style="display:flex;gap:4px;align-items:center">
+      <input type="number" class="inp" id="quota-${p.id}" value="${p.api_calls_limit||10000}" style="width:80px;font-size:.68rem;padding:3px 6px">
+      <button class="btn btn-warn" onclick="setQuota('${p.id}')" style="padding:3px 8px;font-size:.65rem">Set</button>
+    </td>
+    <td>
+      ${p.is_active
+        ?`<button class="btn btn-revoke" onclick="revokePartner('${p.id}')">Revoke</button>`
+        :`<button class="btn btn-activate" onclick="activatePartner('${p.id}')">Activate</button>`
+      }
+    </td>
+  </tr>`).join('');
+}
+
+function renderRevTable(partners){
+  const body=document.getElementById('rev-body');
+  if(!body)return;
+  if(!partners.length){body.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--dim);padding:20px">No revenue data yet.</td></tr>';return;}
+  body.innerHTML=partners.map(p=>`<tr>
+    <td><strong>${p.name}</strong></td>
+    <td>${p.org_name||'—'}</td>
+    <td><span class="pill ${p.plan==='enterprise'||p.plan==='Enterprise'?'cyan':p.plan==='professional'||p.plan==='Professional'?'purple':'yellow'}">${p.plan}</span></td>
+    <td class="mono">${(p.api_calls_total||0).toLocaleString()}</td>
+    <td class="mono" style="color:var(--dim)">&#8377;${(p.plan||'').toLowerCase()==='enterprise'?'1.50':(p.plan||'').toLowerCase()==='professional'?'1.75':'2.00'}/call</td>
+    <td class="mono" style="color:var(--yellow);font-weight:700">&#8377;${(p.revenue_inr||0).toLocaleString()}</td>
+    <td><span class="pill ${p.is_active?'green':'red'}">${p.is_active?'ACTIVE':'REVOKED'}</span></td>
+  </tr>`).join('');
+}
+
+function filterPartners(q){
+  q=q.toLowerCase();
+  document.querySelectorAll('#partners-body tr[data-name]').forEach(tr=>{
+    const n=tr.getAttribute('data-name')||'',o=tr.getAttribute('data-org')||'';
+    tr.style.display=(n.includes(q)||o.includes(q))?'':'none';
+  });
 }
 
 async function revokePartner(id){
   if(!confirm('Revoke this partner\'s API access?'))return;
-  const r=await fetch(`${API}/api/admin/partners/${id}/revoke`,{method:'POST',credentials:'include'});
-  if(r.ok){ alert('Partner access revoked.'); loadPartnerStats(); }
-  else alert('Error: Are you logged in as Admin?');
+  const r=await fetch(`${API}/api/admin/partners/${id}/revoke`,{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
+  if(r.ok){alert('Partner access revoked.');loadPartnerStats();}else alert('Error: Are you logged in as Admin?');
 }
-
 async function activatePartner(id){
-  const r=await fetch(`${API}/api/admin/partners/${id}/activate`,{method:'POST',credentials:'include'});
-  if(r.ok){ alert('Partner access activated.'); loadPartnerStats(); }
-  else alert('Error: Are you logged in as Admin?');
+  const r=await fetch(`${API}/api/admin/partners/${id}/activate`,{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
+  if(r.ok){alert('Partner access activated.');loadPartnerStats();}else alert('Error: Are you logged in as Admin?');
+}
+async function changePlan(id,plan){
+  const r=await fetch(`${API}/api/admin/partners/${id}/change-plan`,{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'},body:JSON.stringify({plan})});
+  const d=await r.json();
+  if(r.ok){alert(`Plan changed to ${plan}. New limit: ${d.new_limit.toLocaleString()} calls/mo`);loadPartnerStats();}
+  else alert('Error: '+(d.detail||'Failed'));
+}
+async function setQuota(id){
+  const inp=document.getElementById('quota-'+id);
+  const limit=parseInt(inp?inp.value:10000);
+  const r=await fetch(`${API}/api/admin/partners/${id}/set-quota`,{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'},body:JSON.stringify({limit})});
+  const d=await r.json();
+  if(r.ok)alert(`Quota updated to ${d.new_limit.toLocaleString()} calls/mo`);
+  else alert('Error: '+(d.detail||'Failed'));
 }
 
+// ── Pending Partners ─────────────────────────────────────────────────────────
+async function loadPendingPartners(){
+  const pList=document.getElementById('pending-list'),aList=document.getElementById('approved-list');
+  const pCount=document.getElementById('pending-count'),aCount=document.getElementById('approved-count');
+  if(pList)pList.innerHTML='<div style="color:var(--dim);font-size:.8rem">Loading...</div>';
+  if(aList)aList.innerHTML='<div style="color:var(--dim);font-size:.8rem">Loading...</div>';
+  try{
+    const r=await fetch('/api/admin/pending-partners',{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
+    if(r.status===401||r.status===403){
+      if(pList)pList.innerHTML='<div style="color:var(--pink);font-size:.8rem">&#9888; Not authenticated. Please <a href="/login.html" style="color:var(--cyan)">login as CEO</a> first.</div>';
+      return;
+    }
+    const d=await r.json();
+    if(pCount)pCount.textContent=d.total_pending||0;
+    if(aCount)aCount.textContent=d.total_approved||0;
+    if(pList){
+      if(!d.pending||!d.pending.length){
+        pList.innerHTML='<div style="color:var(--dim);font-size:.8rem;padding:1rem;border:1px dashed rgba(100,100,180,.3);border-radius:8px;text-align:center">No pending applications yet.</div>';
+      }else{
+        pList.innerHTML=d.pending.map(u=>`
+          <div style="background:rgba(255,200,0,.05);border:1px solid rgba(255,200,0,.2);border-radius:12px;padding:1rem;margin-bottom:.75rem">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div style="font-weight:700;color:#fff;font-size:.9rem">&#127970; ${u.name||'Unknown'}</div>
+                <div style="color:var(--dim);font-size:.75rem;margin-top:2px">&#128231; ${u.email}</div>
+                <div style="color:var(--dim);font-size:.75rem">UPI: ${u.upi_id}</div>
+                <div style="color:var(--dim);font-size:.7rem;margin-top:4px">${u.registered_at?u.registered_at.substring(0,19).replace('T',' '):''}</div>
+              </div>
+              <button onclick="openIssueModal('${u.email}','${u.name||''}','')" class="btn btn-primary" style="padding:8px 14px">Issue API Key &rarr;</button>
+            </div>
+          </div>`).join('');
+      }
+    }
+    if(aList){
+      if(!d.approved||!d.approved.length){
+        aList.innerHTML='<div style="color:var(--dim);font-size:.8rem;padding:1rem;text-align:center">No active partners yet.</div>';
+      }else{
+        aList.innerHTML=d.approved.map(u=>`
+          <div style="background:rgba(0,212,100,.05);border:1px solid rgba(0,212,100,.2);border-radius:12px;padding:1rem;margin-bottom:.75rem">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-weight:700;color:var(--green);font-size:.9rem">&#10003; ${u.name||'Unknown'}</div>
+                <div style="color:var(--dim);font-size:.75rem">&#128231; ${u.email}</div>
+              </div>
+              <span class="pill green">ACTIVE</span>
+            </div>
+          </div>`).join('');
+      }
+    }
+  }catch(e){if(pList)pList.innerHTML='<div style="color:var(--pink);font-size:.8rem">Error: '+e.message+'</div>';}
+}
+
+function openIssueModal(email,name,org){
+  const el=id=>document.getElementById(id);
+  el('ik-email').value=email;
+  el('ik-name').value=name||'';
+  el('ik-org').value=org||'';
+  el('issue-result').innerHTML='';
+  const btn=el('issue-btn');
+  if(btn){btn.disabled=false;btn.textContent='Issue QRNG API Key \u2192';}
+  const m=el('issue-modal');
+  m.style.display='flex';m.style.alignItems='center';m.style.justifyContent='center';
+}
+async function confirmIssueKey(){
+  const el=id=>document.getElementById(id);
+  const email=el('ik-email').value,name=el('ik-name').value,org=el('ik-org').value;
+  const plan=document.querySelector('input[name="ik-plan"]:checked').value;
+  const btn=el('issue-btn'),res=el('issue-result');
+  btn.disabled=true;btn.textContent='Generating QRNG key...';
+  try{
+    const r=await fetch('/api/admin/partners/issue-key',{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'},body:JSON.stringify({email,partner_name:name,org_name:org,plan})});
+    const d=await r.json();
+    if(r.ok){
+      res.style.color='var(--green)';
+      res.innerHTML='&#10003; API Key issued!<br><code style="font-size:.75rem;word-break:break-all;color:var(--cyan)">'+(d.api_key||d.api_key_raw||'')+'</code><br><span style="font-size:.7rem;color:var(--dim)">Plan: '+d.plan+' &middot; '+(d.api_calls_limit>=99999999?'Unlimited':(d.api_calls_limit||0).toLocaleString())+' calls/mo<br><strong style="color:var(--pink)">Copy this key now — it will never be shown again!</strong></span>';
+      btn.textContent='Issued!';
+      setTimeout(()=>{el('issue-modal').style.display='none';loadPendingPartners();loadPartnerStats();},5000);
+    }else{
+      res.style.color='var(--pink)';res.textContent='&#10007; '+(d.detail||'Failed to issue key.');
+      btn.disabled=false;btn.textContent='Issue QRNG API Key \u2192';
+    }
+  }catch(e){
+    res.style.color='var(--pink)';res.textContent='&#10007; Network error.';
+    btn.disabled=false;btn.textContent='Issue QRNG API Key \u2192';
+  }
+}
+
+// ── Users ────────────────────────────────────────────────────────────────────
+async function loadUsers(){
+  try{
+    const r=await fetch(`${API}/api/admin/users`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
+    if(!r.ok)return;
+    allUsers=await r.json();
+    setEl('u-total',allUsers.length);
+    setEl('sb-users',allUsers.length);
+    const admins=allUsers.filter(u=>u.is_admin).length;
+    setEl('u-admins',admins);
+    const totalBal=allUsers.reduce((s,u)=>s+(u.balance||0),0);
+    setEl('u-balance','&#8377;'+totalBal.toLocaleString(undefined,{maximumFractionDigits:0}));
+    renderUsersTable(allUsers);
+  }catch(e){console.warn('Users error:',e);}
+}
+function renderUsersTable(users){
+  const body=document.getElementById('users-body');
+  if(!body)return;
+  if(!users.length){body.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">No users yet.</td></tr>';return;}
+  body.innerHTML=users.map(u=>`<tr data-name="${(u.name||'').toLowerCase()}" data-upi="${(u.upi_id||'').toLowerCase()}">
+    <td><strong>${u.name||'—'}</strong></td>
+    <td class="mono">${u.upi_id||'—'}</td>
+    <td style="color:var(--dim);font-size:.72rem">${u.email||'—'}</td>
+    <td class="mono" style="color:var(--yellow)">&#8377;${(u.balance||0).toFixed(2)}</td>
+    <td>${u.is_admin?'<span class="pill cyan">ADMIN</span>':'<span class="pill">USER</span>'}</td>
+    <td style="color:var(--dim);font-size:.7rem">${u.created_at?u.created_at.toString().slice(0,16).replace('T',' '):'—'}</td>
+  </tr>`).join('');
+}
+function filterUsers(q){
+  q=q.toLowerCase();
+  document.querySelectorAll('#users-body tr[data-name]').forEach(tr=>{
+    const n=tr.getAttribute('data-name')||'',up=tr.getAttribute('data-upi')||'';
+    tr.style.display=(n.includes(q)||up.includes(q))?'':'none';
+  });
+}
+
+// ── Transactions ─────────────────────────────────────────────────────────────
+async function loadTransactions(){
+  txnOffset=0;
+  try{
+    const r=await fetch(`${API}/api/admin/transactions`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
+    if(!r.ok)return;
+    allTxns=await r.json();
+    renderTxnTable(allTxns.slice(0,20));
+  }catch(e){console.warn('Txn error:',e);}
+}
+function renderTxnTable(txns){
+  const body=document.getElementById('txns-body');
+  if(!body)return;
+  if(!txns.length){body.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--dim);padding:20px">No transactions yet.</td></tr>';return;}
+  body.innerHTML=txns.map(t=>`<tr>
+    <td class="mono" style="font-size:.63rem">${(t.id||'').substring(0,12)}...</td>
+    <td style="font-size:.72rem">${t.sender_upi||t.sender||'—'}</td>
+    <td style="font-size:.72rem">${t.receiver_upi||t.receiver||'—'}</td>
+    <td class="mono" style="color:var(--yellow)">&#8377;${(t.amount||0).toLocaleString()}</td>
+    <td class="mono" style="font-size:.6rem;color:var(--purple)">${t.quantum_token?(t.quantum_token.substring(0,22)+'...'):'—'}</td>
+    <td><span class="pill ${(t.status||'').toLowerCase()==='success'||!t.status?'green':'red'}">${t.status||'SUCCESS'}</span></td>
+    <td style="color:var(--dim);font-size:.7rem">${t.created_at?t.created_at.toString().slice(0,16).replace('T',' '):'—'}</td>
+  </tr>`).join('');
+  txnOffset=txns.length;
+  const moreBtn=document.getElementById('txns-more');
+  if(moreBtn)moreBtn.style.display=txnOffset>=allTxns.length?'none':'inline-block';
+}
+function loadMoreTxns(){renderTxnTable(allTxns.slice(0,txnOffset+20));}
+function filterTxns(q){
+  q=q.toLowerCase();
+  document.querySelectorAll('#txns-body tr').forEach(tr=>{
+    tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none';
+  });
+}
+
+// ── IBM Pool ─────────────────────────────────────────────────────────────────
+async function loadIBMPoolStatus(){
+  try{
+    const r=await fetch(`${API}/api/admin/ibm-pool-status`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
+    if(!r.ok)return;
+    const d=await r.json();
+    const avail=d.key_pool_available||d.available||0;
+    const target=d.monthly_target||300;
+    const chunks=d.ibm_entropy_chunks||d.total_chunks||0;
+    const pct=Math.min(100,Math.round(avail/target*100));
+    const lastH=d.last_harvest||d.harvest_month||'—';
+    setEl('pool-available',avail);
+    setEl('pool-target',target);
+    setEl('pool-ibm-chunks',chunks);
+    setEl('pool-last-harvest',typeof lastH==='string'?lastH.substring(0,10):lastH);
+    setEl('m-pool',avail);
+    setEl('sb-pool',avail);
+    // Health bar color
+    const color=pct>50?'var(--green)':pct>20?'var(--yellow)':'var(--pink)';
+    const statusText=pct>50?'HEALTHY':pct>20?'LOW - HARVEST RECOMMENDED':'CRITICAL';
+    const statusClass=pct>50?'pos':pct>20?'':' neg';
+    ['pool-health-bar','dash-pool-bar'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){el.style.width=pct+'%';el.style.background=color;}
+    });
+    setEl('pool-pct',pct+'%');
+    setEl('pool-status-text',statusText);
+    const st=document.getElementById('m-pool-status');
+    if(st){st.textContent=statusText;st.className='m-delta'+(pct>50?' pos':pct>20?'':' neg');}
+    setEl('dash-pool-target','Target: '+target);
+    setEl('dash-pool-count',avail);
+    // Detail
+    const detail=document.getElementById('ibm-pool-detail');
+    if(detail){
+      detail.innerHTML=`
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.78rem">
+          <div style="color:var(--dim)">Available tokens</div><div style="color:var(--cyan)">${avail.toLocaleString()}</div>
+          <div style="color:var(--dim)">Monthly target</div><div style="color:var(--cyan)">${target}</div>
+          <div style="color:var(--dim)">IBM entropy chunks</div><div style="color:var(--green)">${chunks.toLocaleString()}</div>
+          <div style="color:var(--dim)">Last harvest month</div><div style="color:var(--yellow)">${lastH}</div>
+          <div style="color:var(--dim)">Pool fill level</div><div style="color:${color};font-weight:700">${pct}% &mdash; ${statusText}</div>
+          <div style="color:var(--dim)">QPU Backend</div><div style="color:var(--purple)">IBM Marrakesh 156-qubit</div>
+        </div>`;
+    }
+  }catch(e){console.warn('IBM Pool error:',e);}
+}
+
+async function triggerHarvest(){
+  const btn=document.getElementById('harvest-btn');
+  const res=document.getElementById('harvest-result');
+  if(btn){btn.disabled=true;btn.textContent='Submitting job to IBM Quantum...';}
+  if(res){res.style.display='block';res.style.color='var(--yellow)';res.textContent='Connecting to IBM Quantum Network... This may take a few minutes while the QPU processes your circuit.';}
+  try{
+    const r=await fetch(`${API}/api/admin/ibm-harvest-now`,{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
+    const d=await r.json();
+    if(r.ok){
+      if(res){res.style.color='var(--green)';res.textContent='IBM Harvest job submitted! Job ID: '+(d.job_id||'queued')+'. Check Railway logs for progress.';}
+    }else{
+      if(res){res.style.color='var(--pink)';res.textContent='Error: '+(d.detail||'Failed to trigger harvest');}
+    }
+  }catch(e){
+    if(res){res.style.color='var(--pink)';res.textContent='Network error: '+e.message;}
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='&#9883; Trigger IBM Harvest Now';}
+    setTimeout(loadIBMPoolStatus,3000);
+  }
+}
+
+// ── Admin Stats ──────────────────────────────────────────────────────────────
 async function loadStats(){
   try{
-    const r=await fetch(`${API}/api/admin/stats`,{credentials:'include'});
+    const r=await fetch(`${API}/api/admin/stats`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
     if(!r.ok)return;
     const d=await r.json();
     setEl('t-blocked',d.security?.attacks_blocked||0);
     setEl('t-anomalies',d.security?.anomalies||0);
     setEl('t-audits',d.security?.audit_blocks||0);
-  } catch(e){}
+  }catch(e){}
 }
 
+// ── Audit Ledger ─────────────────────────────────────────────────────────────
 async function loadAudit(){
   try{
-    const r=await fetch(`${API}/api/audit/log?limit=20`,{credentials:'include'});
+    const r=await fetch(`${API}/api/audit?limit=30`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
     if(!r.ok)return;
     const blocks=await r.json();
     const chain=document.getElementById('audit-chain');
-    if(!chain||!blocks.length)return;
+    if(!chain)return;
+    if(!blocks.length){chain.innerHTML='<div style="text-align:center;color:var(--dim);padding:20px">No audit events yet.</div>';return;}
     chain.innerHTML=blocks.map(b=>`
       <div class="block-item">
         <div class="block-num">#${b.block_num||b.id||'?'}</div>
         <div class="block-body">
-          <div class="block-action">${b.action||b.event}</div>
-          <div class="block-hash">${b.block_hash||b.data||''}</div>
+          <div class="block-action">${b.action||b.event||'Event'}</div>
+          <div class="block-hash">${b.block_hash||b.data||b.actor||''}</div>
         </div>
         <div class="block-time">${b.timestamp?b.timestamp.toString().slice(0,16).replace('T',' '):''}</div>
       </div>`).join('');
-  } catch(e){}
+  }catch(e){}
 }
 
-function setEl(id,val){const e=document.getElementById(id);if(e)e.textContent=val;}
+async function verifyLedger(){
+  const res=document.getElementById('ledger-verify-result');
+  const cres=document.getElementById('compliance-result');
+  try{
+    const r=await fetch(`${API}/api/admin/ledger/verify`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
+    const d=await r.json();
+    if(res){
+      res.style.display='block';
+      res.style.background=r.ok?'rgba(0,255,170,.08)':'rgba(255,107,107,.08)';
+      res.style.color=r.ok?'var(--green)':'var(--pink)';
+      res.textContent=JSON.stringify(d,null,2);
+    }
+    if(cres){cres.style.display='block';cres.textContent=JSON.stringify(d,null,2);}
+  }catch(e){if(res){res.style.display='block';res.style.color='var(--pink)';res.textContent='Error: '+e.message;}}
+}
 
-// Init
+async function exportCompliance(){
+  const res=document.getElementById('compliance-result');
+  try{
+    const r=await fetch(`${API}/api/v1/b2b/audit-export`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
+    const d=await r.json();
+    if(res){res.style.display='block';res.textContent=JSON.stringify(d,null,2);}
+    // Also trigger browser download
+    const blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='QuantumPay_Compliance_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  }catch(e){if(res){res.style.display='block';res.style.color='var(--pink)';res.textContent='Error: '+e.message;}}
+}
+
+// ── Threats ──────────────────────────────────────────────────────────────────
+async function loadThreats(){
+  try{
+    const r=await fetch(`${API}/api/threats/live`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
+    if(!r.ok)return;
+    const d=await r.json();
+    const threats=d.threats||d||[];
+    const body=document.getElementById('threat-body');
+    if(!body)return;
+    if(!threats.length){body.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">No threats recorded. System secure.</td></tr>';return;}
+    body.innerHTML=threats.map(t=>`<tr>
+      <td style="color:var(--dim);font-size:.7rem">${t.timestamp?t.timestamp.toString().slice(0,16).replace('T',' '):'—'}</td>
+      <td style="color:var(--pink)">${t.attack_type||t.type||'Unknown'}</td>
+      <td class="mono" style="font-size:.68rem">${t.source_ip||t.ip||'—'}</td>
+      <td style="color:var(--dim);font-size:.72rem">${t.layer_hit||t.layer||'—'}</td>
+      <td><span class="pill ${t.blocked?'green':'red'}">${t.blocked?'BLOCKED':'PASSED'}</span></td>
+      <td class="mono">${t.response_ms?t.response_ms+'ms':'—'}</td>
+    </tr>`).join('');
+  }catch(e){}
+}
+async function simulateThreat(){
+  await fetch(`${API}/api/threats/simulate`,{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'},body:JSON.stringify({type:'MITM Attack',source_ip:'192.168.1.'+Math.floor(Math.random()*255)})});
+  setTimeout(()=>{loadThreats();loadStats();},500);
+}
+
+// ── Security Tools ───────────────────────────────────────────────────────────
+async function verifyShards(){
+  const a=document.getElementById('shard-a')?.value||'';
+  const b=document.getElementById('shard-b')?.value||'';
+  const res=document.getElementById('shard-result');
+  if(!a||!b){if(res){res.style.display='block';res.style.color='var(--yellow)';res.textContent='Please enter both Shard A and Shard B.';} return;}
+  try{
+    const r=await fetch(`${API}/api/admin/verify-shards`,{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'},body:JSON.stringify({shard_A:a,shard_B:b})});
+    const d=await r.json();
+    if(res){
+      res.style.display='block';
+      res.style.color=r.ok?'var(--green)':'var(--pink)';
+      res.textContent=JSON.stringify(d,null,2);
+    }
+  }catch(e){if(res){res.style.display='block';res.style.color='var(--pink)';res.textContent='Error: '+e.message;}}
+}
+
+// ── System Controls ──────────────────────────────────────────────────────────
+async function toggleMaintenance(enabled){
+  const label=document.getElementById('maint-label');
+  const res=document.getElementById('maint-result');
+  const indicator=document.getElementById('maint-indicator');
+  try{
+    const r=await fetch(`${API}/api/admin/maintenance`,{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'},body:JSON.stringify({enabled})});
+    const d=await r.json();
+    if(r.ok){
+      if(label)label.textContent='Maintenance Mode: '+(enabled?'ON':'OFF');
+      if(indicator)indicator.style.display=enabled?'block':'none';
+      if(res){res.textContent=(enabled?'&#128683; Maintenance mode ENABLED. Partner APIs will receive 503.':'&#10003; Maintenance mode DISABLED. System back online.');}
+    }
+  }catch(e){if(res)res.textContent='Error: '+e.message;}
+}
+
+async function saveAlertConfig(){
+  const email=document.getElementById('alert-email')?.value||'';
+  const webhook=document.getElementById('alert-webhook')?.value||'';
+  const threshold=document.getElementById('alert-threshold')?.value||50;
+  const res=document.getElementById('alert-result');
+  try{
+    const r=await fetch(`${API}/api/admin/alerts/config`,{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'},body:JSON.stringify({email,webhook_url:webhook,pool_threshold:parseInt(threshold)})});
+    const d=await r.json();
+    if(res){res.style.display='block';res.style.color=r.ok?'var(--green)':'var(--pink)';res.textContent=r.ok?'&#10003; Alert configuration saved.':'Error: '+(d.detail||'Failed');}
+  }catch(e){if(res){res.style.display='block';res.style.color='var(--pink)';res.textContent='Error: '+e.message;}}
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
   loadPartnerStats();
   loadStats();
-  loadAudit();
+  loadIBMPoolStatus();
   setInterval(loadPartnerStats,15000);
   setInterval(loadStats,30000);
+  setInterval(loadIBMPoolStatus,30000);
+  setInterval(()=>{if(document.getElementById('tab-threats').classList.contains('active'))loadThreats();},10000);
 });
-</script>
 
-<script>
-const adminToken = sessionStorage.getItem('qp_token') || localStorage.getItem('token') || '';
-
-function openIssueModal(email, name, org) {
-  document.getElementById('ik-email').value = email;
-  document.getElementById('ik-name').value = name || '';
-  document.getElementById('ik-org').value = org || '';
-  document.getElementById('issue-result').innerHTML = '';
-  const btn = document.getElementById('issue-btn');
-  if(btn){btn.disabled=false;btn.textContent='Issue QRNG API Key →';}
-  const m = document.getElementById('issue-modal');
-  m.style.display = 'flex';
-  m.style.alignItems = 'center';
-  m.style.justifyContent = 'center';
-}
-
-async function loadPendingPartners() {
-  const pList = document.getElementById('pending-list');
-  const aList = document.getElementById('approved-list');
-  const pCount = document.getElementById('pending-count');
-  const aCount = document.getElementById('approved-count');
-
-  pList.innerHTML = '<div style="color:#4040a0;font-size:0.8rem;">Loading...</div>';
-  aList.innerHTML = '<div style="color:#4040a0;font-size:0.8rem;">Loading...</div>';
-
-  try {
-    const r = await fetch('/api/admin/pending-partners', {
-      credentials: 'include',
-      headers: {'Authorization': 'Bearer ' + adminToken}
-    });
-
-    if (r.status === 401 || r.status === 403) {
-      pList.innerHTML = '<div style="color:#ff4444;font-size:0.8rem;">⚠️ Not authenticated. Please <a href="/login.html" style="color:#00d4ff;">login as CEO</a> first.</div>';
-      aList.innerHTML = '';
-      return;
-    }
-
-    if (!r.ok) {
-      pList.innerHTML = '<div style="color:#ff4444;font-size:0.8rem;">Error loading partners: ' + r.status + '</div>';
-      return;
-    }
-
-    const d = await r.json();
-    pCount.textContent = d.total_pending || 0;
-    aCount.textContent = d.total_approved || 0;
-
-    // ── Render Pending ──
-    if (!d.pending || !d.pending.length) {
-      pList.innerHTML = '<div style="color:#4040a0;font-size:0.8rem;padding:1rem;border:1px dashed rgba(100,100,180,0.3);border-radius:8px;text-align:center;">No pending applications yet.<br><span style="font-size:0.7rem;color:#2020a0;">Banks register via /partner_login.html</span></div>';
-    } else {
-      pList.innerHTML = d.pending.map(u => `
-        <div style="background:rgba(255,200,0,0.05);border:1px solid rgba(255,200,0,0.2);border-radius:12px;padding:1rem;margin-bottom:0.75rem;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-            <div>
-              <div style="font-weight:700;color:#fff;font-size:0.9rem;">🏦 ${u.name || 'Unknown'}</div>
-              <div style="color:#a0a0b0;font-size:0.75rem;margin-top:2px;">📧 ${u.email}</div>
-              <div style="color:#a0a0b0;font-size:0.75rem;">🔑 UPI: ${u.upi_id}</div>
-              <div style="color:#4040a0;font-size:0.7rem;margin-top:4px;">Registered: ${u.registered_at ? u.registered_at.substring(0,19).replace('T',' ') : 'Unknown'}</div>
-            </div>
-            <button onclick="openIssueModal('${u.email}','${u.name}','')" 
-              style="background:linear-gradient(135deg,#00d4ff,#7b2fff);border:none;border-radius:8px;padding:8px 14px;color:#fff;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">
-              Issue API Key →
-            </button>
-          </div>
-        </div>`).join('');
-    }
-
-    // ── Render Approved ──
-    if (!d.approved || !d.approved.length) {
-      aList.innerHTML = '<div style="color:#4040a0;font-size:0.8rem;padding:1rem;border:1px dashed rgba(0,212,100,0.2);border-radius:8px;text-align:center;">No active partners yet.</div>';
-    } else {
-      aList.innerHTML = d.approved.map(u => `
-        <div style="background:rgba(0,212,100,0.05);border:1px solid rgba(0,212,100,0.2);border-radius:12px;padding:1rem;margin-bottom:0.75rem;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div>
-              <div style="font-weight:700;color:#00d464;font-size:0.9rem;">✅ ${u.name || 'Unknown'}</div>
-              <div style="color:#a0a0b0;font-size:0.75rem;margin-top:2px;">📧 ${u.email}</div>
-            </div>
-            <span style="background:rgba(0,212,100,0.15);border:1px solid rgba(0,212,100,0.3);border-radius:20px;padding:4px 12px;color:#00d464;font-size:0.7rem;font-weight:700;">ACTIVE</span>
-          </div>
-        </div>`).join('');
-    }
-
-  } catch(e) {
-    pList.innerHTML = '<div style="color:#ff4444;font-size:0.8rem;">Error: ' + e.message + '</div>';
-  }
-}
-
-async function confirmIssueKey() {
-  const email = document.getElementById('ik-email').value;
-  const name = document.getElementById('ik-name').value;
-  const org = document.getElementById('ik-org').value;
-  const plan = document.querySelector('input[name="ik-plan"]:checked').value;
-  const btn = document.getElementById('issue-btn');
-  const res = document.getElementById('issue-result');
-
-  btn.disabled = true;
-  btn.textContent = 'Generating QRNG key...';
-
-  try {
-    const r = await fetch('/api/admin/partners/issue-key', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json'},
-      body: JSON.stringify({email, partner_name: name, org_name: org, plan})
-    });
-    const d = await r.json();
-    if (r.ok) {
-      res.style.color = '#00d464';
-      res.innerHTML = '✅ API Key issued!<br><code style="font-size:0.75rem;word-break:break-all;color:#00d4ff;">' + d.api_key + '</code><br><span style="font-size:0.7rem;color:#3050a0;">Plan: ' + d.plan + ' · ' + (d.api_calls_limit >= 99999999 ? 'Unlimited' : d.api_calls_limit.toLocaleString()) + ' calls/mo</span>';
-      btn.textContent = 'Issued!';
-      setTimeout(() => {
-        document.getElementById('issue-modal').style.display = 'none';
-        loadPendingPartners();
-      }, 3000);
-    } else {
-      res.style.color = '#ff5050';
-      res.textContent = '❌ ' + (d.detail || 'Failed to issue key.');
-      btn.disabled = false;
-      btn.textContent = 'Issue QRNG API Key →';
-    }
-  } catch(e) {
-    res.style.color = '#ff5050';
-    res.textContent = '❌ Network error.';
-    btn.disabled = false;
-    btn.textContent = 'Issue QRNG API Key →';
-  }
-}
-
-// Auto-load on page load
-document.addEventListener('DOMContentLoaded', loadPendingPartners);
-setTimeout(loadPendingPartners, 500);
+document.addEventListener('DOMContentLoaded',loadPendingPartners);
+setTimeout(loadPendingPartners,500);
 </script>
 
 </body>
