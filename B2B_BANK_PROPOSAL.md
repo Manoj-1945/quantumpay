@@ -1,10 +1,10 @@
-# QuantumPay B2B Security Gateway
+# AnuPradaan B2B Security Gateway
 ## Executive Proposal for Banks, Payment Aggregators & Fintech Platforms
 
 ---
 
 ### 1. Executive Summary
-QuantumPay provides India's first **Plug-and-Play Post-Quantum Security Middleware**. 
+AnuPradaan provides India's first **Plug-and-Play Post-Quantum Security Middleware**. 
 By integrating our B2B REST API or SDK into existing banking/UPI payment pipelines (via 3 lines of code), financial institutions instantly upgrade their transaction security to **NIST FIPS 203/204 Post-Quantum Standards** and **Quantum Secure Cache (QSC)** sharding without replacing their existing hardware or core banking engines.
 
 ---
@@ -14,10 +14,10 @@ Existing banking cryptography relies on RSA-2048 and ECC-256 algorithms. Quantum
 
 ---
 
-### 3. The QuantumPay Solution: B2B Middleware
+### 3. The AnuPradaan Solution: B2B Middleware
 
 ```
-[Bank / Payment App] ────► [QuantumPay B2B Gateway] ────► [NIST PQC Proof Output]
+[Bank / Payment App] ────► [AnuPradaan B2B Gateway] ────► [NIST PQC Proof Output]
   Send Tx Payload             HKDF-SHA3 Derivation            Kyber-768 KEM
                               3-Way Ephemeral Shard           Dilithium-3 Signature
 ```
@@ -32,8 +32,8 @@ Existing banking cryptography relies on RSA-2048 and ECC-256 algorithms. Quantum
 ### 4. Integration Code (3 Lines)
 
 ```javascript
-const { QuantumPaySDK } = require('@quantumpay/security-sdk');
-const qpay = new QuantumPaySDK({ partnerId: 'PTR-BANK-001', apiKey: 'qp_live_...' });
+const { AnuPradaanSDK } = require('@quantumpay/security-sdk');
+const qpay = new AnuPradaanSDK({ partnerId: 'PTR-BANK-001', apiKey: 'qp_live_...' });
 
 // Protect payment transaction
 const proof = await qpay.protectTransaction({ amount: 5000, customerRef: 'CUST_9941' });
