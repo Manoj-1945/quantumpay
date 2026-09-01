@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QuantumPay B2B Gateway v4.1 | ISO 20022 & Level 5 Defense Gateway</title>
+  <title>AnuPradaan B2B Gateway v4.1 | ISO 20022 & Level 5 Defense Gateway</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -140,7 +140,7 @@
   </nav>
 
   <div class="container">
-    <h1 class="hero-title">Post-Quantum Payment Middleware v4.1</h1>
+    <h1 class="hero-title">Post-AnuPradaanment Middleware v4.1</h1>
     <p class="hero-subtitle">Architected by Manoj Kumar G K • ISO 20022 pacs.008 Standard • NIST Kyber-1024 Level 5 • Multi-Language Enterprise SDKs</p>
 
     <div class="tab-bar">
@@ -210,7 +210,7 @@
 
         <div class="code-box">
           <button class="btn-copy" onclick="copySdkCode()">Copy Code</button>
-<pre id="sdkCode"># 1. Import QuantumPay Level 5 SDK
+<pre id="sdkCode"># 1. Import AnuPradaan Level 5 SDK
 import quantumpay
 
 # 2. Initialize Gateway Proxy
@@ -328,7 +328,7 @@ print("Level 5 Token:", secured_tx.quantum_proof_token)</pre>
       <div class="card">
         <div class="card-title">📜 RBI Sandbox & National Quantum Mission Compliance Export</div>
         <p style="color:var(--text-muted); font-size:15px; margin-bottom:24px; line-height:1.6;">
-          QuantumPay v4.1 is fully audited and compliant with <strong>ISO 20022 Messaging Standards</strong>, <strong>NIST FIPS 203 Level 5 (Kyber-1024)</strong>, <strong>NIST FIPS 204 (Dilithium-3)</strong>, <strong>CHSH Bell Inequality Violation Proofs</strong>, and <strong>Reserve Bank of India (RBI) Data Localization Mandates</strong>.
+          AnuPradaan v4.1 is fully audited and compliant with <strong>ISO 20022 Messaging Standards</strong>, <strong>NIST FIPS 203 Level 5 (Kyber-1024)</strong>, <strong>NIST FIPS 204 (Dilithium-3)</strong>, <strong>CHSH Bell Inequality Violation Proofs</strong>, and <strong>Reserve Bank of India (RBI) Data Localization Mandates</strong>.
         </p>
 
         <div class="grid-4" style="margin-bottom:24px;">
@@ -360,7 +360,7 @@ print("Level 5 Token:", secured_tx.quantum_proof_token)</pre>
     const API = "https://quantumpay-api-production.up.railway.app";
 
     const SDK_SNIPPETS = {
-      python: `# 1. Import QuantumPay Level 5 SDK
+      python: `# 1. Import AnuPradaan Level 5 SDK
 import quantumpay
 
 # 2. Initialize Gateway Proxy
@@ -370,22 +370,22 @@ qp = quantumpay.Middleware(api_key="qp_live_phonepe_sec_9941a")
 secured_tx = qp.sign_transaction(partner_id="PHONEPE", amount=250000.0, merchant="HDFC_RTGS")
 print("Level 5 Token:", secured_tx.quantum_proof_token)`,
 
-      java: `// 1. Import QuantumPay Java Spring Boot SDK
-import com.quantumpay.sdk.QuantumPayClient;
+      java: `// 1. Import AnuPradaan Java Spring Boot SDK
+import com.quantumpay.sdk.AnuPradaanClient;
 import com.quantumpay.sdk.model.TransactionProof;
 
 // 2. Initialize Spring Bean Component
-QuantumPayClient qp = new QuantumPayClient("qp_live_phonepe_sec_9941a");
+AnuPradaanClient qp = new AnuPradaanClient("qp_live_phonepe_sec_9941a");
 
 // 3. Encapsulate Financial Transaction Payload
 TransactionProof proof = qp.signTransaction("PTR-HDFCBANK", 250000.00, "HDFC_RTGS");
 System.out.println("Kyber-1024 Token: " + proof.getQuantumProofToken());`,
 
-      nodejs: `// 1. Import QuantumPay Node.js/TypeScript SDK
-import { QuantumPayClient } from '@quantumpay/sdk';
+      nodejs: `// 1. Import AnuPradaan Node.js/TypeScript SDK
+import { AnuPradaanClient } from '@quantumpay/sdk';
 
 // 2. Initialize Client
-const qp = new QuantumPayClient({ apiKey: 'qp_live_phonepe_sec_9941a' });
+const qp = new AnuPradaanClient({ apiKey: 'qp_live_phonepe_sec_9941a' });
 
 // 3. Execute Async Sign
 async function run() {
@@ -393,7 +393,7 @@ async function run() {
   console.log("Quantum Token:", proof.quantumProofToken);
 }`,
 
-      go: `// 1. Import QuantumPay Go Module
+      go: `// 1. Import AnuPradaan Go Module
 package main
 import (
     "fmt"
