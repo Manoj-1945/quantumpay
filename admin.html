@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>QuantumPay — CEO Command Center</title>
+  <title>AnuPradaan — CEO Command Center</title>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -137,7 +137,7 @@
     <div class="sb-logo">
       <div class="sb-logo-icon">&#9883;</div>
       <div>
-        <div class="sb-brand">QuantumPay</div>
+        <div class="sb-brand">AnuPradaan</div>
         <div class="sb-role">CEO COMMAND CENTER</div>
       </div>
     </div>
@@ -201,7 +201,7 @@
     <div class="topbar">
       <div class="tb-left">
         <div class="tb-title" id="tab-title">B2B Dashboard</div>
-        <div class="tb-sub">QuantumPay CEO Command Center &mdash; Real-Time B2B Intelligence</div>
+        <div class="tb-sub">AnuPradaan CEO Command Center &mdash; Real-Time B2B Intelligence</div>
       </div>
       <div class="tb-right">
         <div id="maint-indicator" style="display:none;background:rgba(255,107,107,.15);border:1px solid rgba(255,107,107,.4);border-radius:20px;padding:4px 12px;font-size:.7rem;color:var(--pink);font-weight:700">&#128683; MAINTENANCE</div>
@@ -656,7 +656,7 @@
       <div class="glass">
         <div class="card-title">&#128202; System Info</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.78rem">
-          <div style="color:var(--dim)">Backend Version</div><div style="color:var(--cyan)">QuantumPay v5.2</div>
+          <div style="color:var(--dim)">Backend Version</div><div style="color:var(--cyan)">AnuPradaan v5.2</div>
           <div style="color:var(--dim)">Quantum Engine</div><div style="color:var(--cyan)">IBM Marrakesh 156-qubit QPU</div>
           <div style="color:var(--dim)">Entropy Sources</div><div style="color:var(--green)">IBM + ANU + OS-CSPRNG</div>
           <div style="color:var(--dim)">Mixing Protocol</div><div style="color:var(--green)">HKDF-SHA3-256</div>
@@ -1107,7 +1107,7 @@ async function exportCompliance(){
     // Also trigger browser download
     const blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download='QuantumPay_Compliance_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+    const a=document.createElement('a');a.href=url;a.download='AnuPradaan_Compliance_'+new Date().toISOString().slice(0,10)+'.json';a.click();
   }catch(e){if(res){res.style.display='block';res.style.color='var(--pink)';res.textContent='Error: '+e.message;}}
 }
 
