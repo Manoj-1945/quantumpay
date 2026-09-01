@@ -781,20 +781,26 @@ async def refill_key_pool():
             async with db_pool.acquire() as conn:
                 row = await conn.fetchrow("SELECT COUNT(*) FROM key_pool WHERE status='AVAILABLE'")
                 available = row[0]
-                needed = KEY_POOL_TARGET - available
+                target_row = await conn.fetchrow("SELECT value FROM admin_settings WHERE key='key_pool_target'")
+                current_target = int(target_row['value']) if target_row and target_row['value'].isdigit() else KEY_POOL_TARGET
+                needed = current_target - available
                 if needed > 0:
                     batch = min(needed, 500)
                     
                     # 1. Grab IBM Tokens from DB pool
                     ibm_rows = await conn.fetch("SELECT id, entropy_hex FROM ibm_entropy_pool WHERE used=0 ORDER BY RANDOM() LIMIT $1", batch)
                     
-                    # 2. Grab ANU Tokens
+                    # 2. Grab ANU Tokens (Max 100 per request)
                     anu_bytes = []
                     try:
+                        anu_calls = (batch + 99) // 100
                         async with httpx.AsyncClient(timeout=15.0) as client:
-                            resp = await client.get(f"https://qrng.anu.edu.au/API/jsonI.php?length={batch}&type=hex16")
-                            if resp.status_code == 200:
-                                anu_bytes = resp.json().get("data", [])
+                            for _ in range(anu_calls):
+                                fetch_len = min(100, batch - len(anu_bytes))
+                                if fetch_len <= 0: break
+                                resp = await client.get(f"https://qrng.anu.edu.au/API/jsonI.php?length={fetch_len}&type=hex16")
+                                if resp.status_code == 200:
+                                    anu_bytes.extend(resp.json().get("data", []))
                     except Exception as e:
                         print(f"[WARN] ANU fetch failed for mixing: {e}")
                     
@@ -2142,13 +2148,23 @@ async def ibm_pool_status_endpoint(_admin: str = Depends(get_admin_user)):
             current_month
         )
         consumed = row_used[0]
+    # Fetch dynamic key pool target and current size
+    async with db_pool.acquire() as conn:
+        target_row = await conn.fetchrow("SELECT value FROM admin_settings WHERE key='key_pool_target'")
+        key_pool_target = int(target_row['value']) if target_row and target_row['value'].isdigit() else KEY_POOL_TARGET
+        avail_row = await conn.fetchrow("SELECT COUNT(*) FROM key_pool WHERE status='AVAILABLE'")
+        key_pool_available = avail_row[0]
+
     return {
         "current_month": current_month,
+        "key_pool_available": key_pool_available,
+        "key_pool_target": key_pool_target,
+        "ibm_entropy_chunks": available, # raw chunks available
         "ibm_pool_available": available,
         "ibm_pool_consumed": consumed,
         "ibm_pool_total": available + consumed,
-        "monthly_target": ibm_qiskit_engine.monthly_target,
-        "pool_health_pct": round((available / max(ibm_qiskit_engine.monthly_target, 1)) * 100, 1),
+        "monthly_target": ibm_qiskit_engine.monthly_target, # ibm quota
+        "pool_health_pct": round((key_pool_available / max(key_pool_target, 1)) * 100, 1),
         "ibm_token_configured": bool(ibm_qiskit_engine.ibm_token),
         "entropy_status": ibm_qiskit_engine.get_entropy_status(),
         "note": "IBM bytes harvested once per month (~300 chunks/10min budget). Each payment draws one chunk and marks it consumed."
@@ -2272,6 +2288,27 @@ async def set_partner_quota(request: Request, partner_id: str, _admin: str = Dep
         await conn.execute("UPDATE b2b_partners SET api_calls_limit=$1 WHERE id=$2", limit, partner_id)
     return {"success": True, "partner_id": partner_id, "new_limit": limit}
 
+
+
+@app.post("/api/admin/config/pool-target")
+@limiter.limit("5/minute")
+async def set_pool_target(request: Request, _admin: str = Depends(get_admin_user)):
+    """Admin: set the key pool target size."""
+    body = await request.json()
+    try:
+        target = int(body.get("target", 500000))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Target must be an integer")
+    if target < 100 or target > 1000000000:
+        raise HTTPException(status_code=400, detail="Target must be between 100 and 1,000,000,000")
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB unavailable")
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO admin_settings(key,value) VALUES('key_pool_target',$1) ON CONFLICT(key) DO UPDATE SET value=$1",
+            str(target)
+        )
+    return {"success": True, "new_target": target}
 
 @app.post("/api/admin/maintenance")
 @limiter.limit("5/minute")
