@@ -602,6 +602,15 @@
     <!-- ── SYSTEM CONTROLS TAB ── -->
     <div class="tab" id="tab-alerts">
       <div class="glass">
+        <div class="card-title">&#128202; Token Pool Target</div>
+        <div style="font-size:.78rem;color:var(--dim);margin-bottom:16px">Set the total number of ready tokens to maintain in the pool. (1 token = 1 B2B payment)</div>
+        <div style="display:flex;gap:10px;margin-bottom:10px">
+          <input id="pool-target-input" class="inp" style="flex:1" placeholder="e.g. 500000" type="number">
+          <button class="btn btn-primary" onclick="savePoolTarget()" style="padding:10px 20px">Save Target</button>
+        </div>
+        <div id="pool-target-result" style="font-size:.8rem;color:var(--dim)"></div>
+      </div>
+      <div class="glass">
         <div class="card-title">&#128683; System Maintenance Mode</div>
         <div style="font-size:.78rem;color:var(--dim);margin-bottom:16px">Toggle maintenance mode to take the API offline for updates. All partner API calls will receive a 503 response.</div>
         <div class="toggle-wrap" style="margin-bottom:20px">
@@ -979,7 +988,7 @@ async function loadIBMPoolStatus(){
     if(!r.ok)return;
     const d=await r.json();
     const avail=d.key_pool_available||d.available||0;
-    const target=d.monthly_target||300;
+    const target=d.key_pool_target||500000;
     const chunks=d.ibm_entropy_chunks||d.total_chunks||0;
     const pct=Math.min(100,Math.round(avail/target*100));
     const lastH=d.last_harvest||d.harvest_month||'—';
@@ -1145,6 +1154,24 @@ async function verifyShards(){
 }
 
 // ── System Controls ──────────────────────────────────────────────────────────
+
+async function savePoolTarget(){
+  const input = document.getElementById('pool-target-input');
+  const target = parseInt(input.value);
+  const res = document.getElementById('pool-target-result');
+  if(!target || target < 100){ res.textContent='Please enter a valid target (min 100).'; return; }
+  try{
+    const r=await fetch(`${API}/api/admin/config/pool-target`,{method:'POST',credentials:'include',headers:{'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'},body:JSON.stringify({target})});
+    const d=await r.json();
+    if(r.ok){
+      res.style.color='var(--green)'; res.innerHTML='&#10003; Pool target updated to ' + d.new_target.toLocaleString();
+      setTimeout(loadIBMPoolStatus, 1000);
+    }else{
+      res.style.color='var(--pink)'; res.textContent='Error: '+(d.detail||'Failed');
+    }
+  }catch(e){ res.style.color='var(--pink)'; res.textContent='Error: '+e.message; }
+}
+
 async function toggleMaintenance(enabled){
   const label=document.getElementById('maint-label');
   const res=document.getElementById('maint-result');
