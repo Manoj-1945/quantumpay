@@ -1,5 +1,5 @@
 """
-QuantumPay Quantum Secure Cache & Physical IBM Quantum Hardware Engine v3.4
+AnuPradaan Quantum Secure Cache & Physical IBM Quantum Hardware Engine v3.4
 ===========================================================================
 Architected by Manoj Kumar G K
 
@@ -158,7 +158,7 @@ class EntropyMixer:
         anu_bytes = os.urandom(bytes_needed)
 
         mixed = bytes(os_bytes[i] ^ ibm_bytes[i] ^ anu_bytes[i] for i in range(bytes_needed))
-        master_seed = hashlib.sha3_512(mixed + b"QuantumPay-EntropyMixer-v3.4").digest()
+        master_seed = hashlib.sha3_512(mixed + b"AnuPradaan-EntropyMixer-v3.4").digest()
 
         return master_seed[:bytes_needed], {
             "anu_qrng": {"status": "ACTIVE", "type": "Quantum Vacuum Fluctuation"},
@@ -186,7 +186,7 @@ class HSMVault:
         self._operation_count += 1
 
         prk = hmac.new(self._master_seed, context, hashlib.sha3_256).digest()
-        info = b"QuantumPay-TokenDerivation-v3.4"
+        info = b"AnuPradaan-TokenDerivation-v3.4"
         okm = b""
         prev = b""
         for i in range(1, 3):
@@ -334,7 +334,7 @@ class QuantumSecureCache:
 
     def get_system_status(self) -> dict:
         return {
-            "system": "QuantumPay Secure Cache v3.4",
+            "system": "AnuPradaan Secure Cache v3.4",
             "architect": "Manoj Kumar G K",
             "hsm": self.hsm.get_status(),
             "shards": [s.get_status() for s in self.shards],
