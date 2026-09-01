@@ -905,10 +905,11 @@ async function loadUsers(){
   try{
     const r=await fetch(`${API}/api/admin/users`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
     if(!r.ok)return;
-    allUsers=await r.json();
-    setEl('u-total',allUsers.length);
-    setEl('sb-users',allUsers.length);
-    const admins=allUsers.filter(u=>u.is_admin).length;
+    const resp=await r.json();
+    allUsers=Array.isArray(resp)?resp:(resp.users||[]);
+    setEl('u-total',resp.total||allUsers.length);
+    setEl('sb-users',resp.total||allUsers.length);
+    const admins=allUsers.filter(u=>u.is_admin||u.role==='admin').length;
     setEl('u-admins',admins);
     const totalBal=allUsers.reduce((s,u)=>s+(u.balance||0),0);
     setEl('u-balance','&#8377;'+totalBal.toLocaleString(undefined,{maximumFractionDigits:0}));
@@ -955,7 +956,7 @@ function renderTxnTable(txns){
     <td style="font-size:.72rem">${t.sender_upi||t.sender||'—'}</td>
     <td style="font-size:.72rem">${t.receiver_upi||t.receiver||'—'}</td>
     <td class="mono" style="color:var(--yellow)">&#8377;${(t.amount||0).toLocaleString()}</td>
-    <td class="mono" style="font-size:.6rem;color:var(--purple)">${t.quantum_token?(t.quantum_token.substring(0,22)+'...'):'—'}</td>
+    <td class="mono" style="font-size:.6rem;color:var(--purple)">${(t.quantum_token||t.token)?((t.quantum_token||t.token).substring(0,22)+'...'):'—'}</td>
     <td><span class="pill ${(t.status||'').toLowerCase()==='success'||!t.status?'green':'red'}">${t.status||'SUCCESS'}</span></td>
     <td style="color:var(--dim);font-size:.7rem">${t.created_at?t.created_at.toString().slice(0,16).replace('T',' '):'—'}</td>
   </tr>`).join('');
