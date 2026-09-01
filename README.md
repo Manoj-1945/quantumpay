@@ -1,11 +1,11 @@
-# QuantumPay v5.1 — World's First Quantum-Secured Payment Platform
+# AnuPradaan v5.1 — World's First Quantum-Secured Payment Platform
 
 [![Live](https://img.shields.io/badge/Live-Railway-green)](https://quantumpay-api-production.up.railway.app)
 [![Version](https://img.shields.io/badge/Version-5.1-blue)](https://quantumpay-api-production.up.railway.app/docs)
 [![PQC](https://img.shields.io/badge/PQC-NIST%20Level%205-purple)](https://quantumpay-api-production.up.railway.app)
 [![RBI](https://img.shields.io/badge/RBI-Sandbox%20Cohort%206-orange)](https://quantumpay-api-production.up.railway.app/api/rbi/sandbox-verify)
 
-> QuantumPay makes payments permanently unhackable using post-quantum cryptography — even against future quantum computers. Built for India's financial infrastructure.
+> AnuPradaan makes payments permanently unhackable using post-quantum cryptography — even against future quantum computers. Built for India's financial infrastructure.
 
 ## Live Links
 
@@ -87,7 +87,7 @@ curl -X POST https://quantumpay-api-production.up.railway.app/api/v1/b2b/verify 
 - CERT-In Post-Quantum Audit Level 4
 
 ## About
-**QuantumPay CyberSec Technologies Pvt Ltd**
+**AnuPradaan CyberSec Technologies Pvt Ltd**
 Bengaluru, Karnataka, India | Founded 2026
 Inventor: Manoj Kumar G K
 
