@@ -1,5 +1,5 @@
 """
-QuantumPay Backend v5.0
+AnuPradaan Backend v5.0
 ========================
 FIXES applied in this version:
   [1] Admin routes now require JWT + admin role (was publicly open)
@@ -183,12 +183,12 @@ limiter = Limiter(key_func=get_remote_address)
 # ─── APP ─────────────────────────────────────────────────────────────────────
 _ENV = os.getenv("ENV", "production")
 app = FastAPI(
-    title="QuantumPay API",
+    title="AnuPradaan API",
     docs_url="/docs" if _ENV == "development" else None,
     redoc_url="/redoc" if _ENV == "development" else None,
     openapi_url="/openapi.json" if _ENV == "development" else None,
     description="""
-## QuantumPay v5.0 — World's First Quantum-Secured Payment Backend
+## AnuPradaan v5.0 — World's First Quantum-Secured Payment Backend
 
 ### Security Hardening (v5.0)
 - **Admin routes** protected by JWT + admin role flag
@@ -348,7 +348,7 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        print("[OK] PostgreSQL Database initialized — QuantumPay v5.2")
+        print("[OK] PostgreSQL Database initialized — AnuPradaan v5.2")
 
 # ─── MODELS ──────────────────────────────────────────────────────────────────
 class RegisterRequest(BaseModel):
@@ -566,7 +566,7 @@ async def trigger_security_alert(message: str):
                 alert_url = row[0]
         apobj = apprise.Apprise()
         apobj.add(alert_url)
-        apobj.notify(body=message, title="🚨 QuantumPay Security Alert")
+        apobj.notify(body=message, title="🚨 AnuPradaan Security Alert")
     except Exception as e:
         print(f"[WARN] Failed to trigger alert: {e}")
 
@@ -849,7 +849,7 @@ async def startup():
         await init_db()
         asyncio.create_task(refill_key_pool())
         asyncio.create_task(ibm_qiskit_engine.run_monthly_harvest())
-        print("[STARTED] QuantumPay v5.2 — PostgreSQL Enterprise Active")
+        print("[STARTED] AnuPradaan v5.2 — PostgreSQL Enterprise Active")
     else:
         print("[ERROR] DATABASE_URL missing, DB features disabled. Please attach Postgres in Railway.")
 
@@ -867,7 +867,7 @@ async def startup():
             if not _exists:
                 await _db.execute(
                     "INSERT INTO b2b_partners (id,name,api_key,webhook_url,plan,api_calls_total,is_active) VALUES (?,?,?,?,?,?,?)",
-                    (str(_uuid.uuid4()), "QuantumPay Live Demo", _demo_key, "", "Enterprise", 0, 1)
+                    (str(_uuid.uuid4()), "AnuPradaan Live Demo", _demo_key, "", "Enterprise", 0, 1)
                 )
                 await _db.commit()
     except Exception:
@@ -881,7 +881,7 @@ async def root():
     except FileNotFoundError:
         return HTMLResponse(content="""<html><body style='background:#080C14;color:#fff;
         font-family:sans-serif;text-align:center;padding:50px'>
-        <h1>⚛ QuantumPay API v5.0</h1>
+        <h1>⚛ AnuPradaan API v5.0</h1>
         <p>NIST FIPS 203 Level 5 | ISO 20022 | Rate-Limited | Admin Auth</p>
         <a href='/docs' style='color:#00F2FE'>→ View Swagger API Docs</a>
         </body></html>""")
@@ -895,7 +895,7 @@ async def favicon():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "5.0.0", "service": "QuantumPay API", "uptime": time.time()}
+    return {"status": "ok", "version": "5.0.0", "service": "AnuPradaan API", "uptime": time.time()}
 
 @app.get("/b2b_portal.html", response_class=HTMLResponse)
 async def b2b_portal_html():
@@ -1138,7 +1138,7 @@ async def get_transaction_receipt(tx_id: str, upi_id: str = Depends(get_current_
         "compliance": {"rbi_compliant": True, "npci_upi_standard": "v2.0",
                        "iso_27001": True, "cert_in_audit": "Level 4 Cleared"},
         "generated_at": datetime.utcnow(),
-        "issuer": "QuantumPay CyberSec Technologies v5.0"
+        "issuer": "AnuPradaan CyberSec Technologies v5.0"
     }
 
 # ─── AUDIT LOG (AUTH REQUIRED) ────────────────────────────────────────────────
@@ -1367,7 +1367,7 @@ async def broadcast_ledger(req: LedgerBroadcastRequest, admin: str = Depends(get
             if not row: return {"success": False, "message": "No blocks to broadcast."}
             block_hash, ts = row
             
-    ledger_msg = f"QuantumPay Immutable Ledger Broadcast\nTimestamp: {ts}\nRoot Hash: {block_hash}"
+    ledger_msg = f"AnuPradaan Immutable Ledger Broadcast\nTimestamp: {ts}\nRoot Hash: {block_hash}"
     encoded = base64.b64encode(ledger_msg.encode()).decode()
     
     headers = {
@@ -1621,10 +1621,10 @@ async def dispatch_webhook(url: str, api_key: str, payload: dict,
     sig = hmac.new(secret.encode(), body.encode(), hashlib.sha256).hexdigest()
     headers = {
         "Content-Type": "application/json",
-        "X-QuantumPay-Signature": "sha256=" + sig,
-        "X-QuantumPay-Event": payload.get("event", "transaction.secured"),
-        "X-QuantumPay-Delivery-ID": str(uuid.uuid4()),
-        "User-Agent": "QuantumPay-Webhook/5.2"
+        "X-AnuPradaan-Signature": "sha256=" + sig,
+        "X-AnuPradaan-Event": payload.get("event", "transaction.secured"),
+        "X-AnuPradaan-Delivery-ID": str(uuid.uuid4()),
+        "User-Agent": "AnuPradaan-Webhook/5.2"
     }
     success = False
     delays = [5, 30, 300]  # exponential backoff: 5s, 30s, 5min
@@ -1683,7 +1683,7 @@ async def register_partner(req: B2BPartnerRequest, admin: str = Depends(get_admi
             "api_key": api_key,
             "webhook_secret": webhook_secret,
             "api_key_note": "Store this securely. Use in X-API-Key header for all B2B calls.",
-            "webhook_secret_note": "Use this to verify webhook signatures (X-QuantumPay-Signature header).",
+            "webhook_secret_note": "Use this to verify webhook signatures (X-AnuPradaan-Signature header).",
             "entropy_source": "ANU Quantum Lab QRNG (256-bit)", "webhook_url": req.webhook_url or "Not set",
             "registered_at": datetime.utcnow()}
 
@@ -1857,7 +1857,7 @@ async def iso20022_convert(request: Request, req: ISO20022Request, x_api_key: st
 @app.get("/api/v1/b2b/audit-export")
 async def audit_export(admin: str = Depends(get_admin_user)):
     return {"certificate_id": f"CERT-RBI-NQM-V50-{secrets.token_hex(4).upper()}",
-            "issuer": "QuantumPay Security Engine v5.0",
+            "issuer": "AnuPradaan Security Engine v5.0",
             "compliance_standards": ["ISO 20022 pacs.008", "NIST FIPS 203 Level 5",
                                      "NIST FIPS 204 (Dilithium-3)", "CHSH Bell Inequality Violation Proof",
                                      "RBI Data Localization"],
@@ -1900,7 +1900,7 @@ async def test_webhook(api_key: str):
         raise HTTPException(status_code=400, detail="No webhook URL configured. Set one first.")
     test_payload = {
         "event": "webhook.test",
-        "message": "This is a test webhook from QuantumPay. Your endpoint is correctly configured.",
+        "message": "This is a test webhook from AnuPradaan. Your endpoint is correctly configured.",
         "timestamp": datetime.utcnow().isoformat()
     }
     asyncio.create_task(dispatch_webhook(row[0], api_key, test_payload, webhook_secret=row[1] or ""))
@@ -2229,7 +2229,7 @@ if __name__ == "__main__":
     import uvicorn, sys
     sys.stdout.reconfigure(encoding="utf-8") if hasattr(sys.stdout, "reconfigure") else None
     print("\n" + "="*70)
-    print("  QuantumPay Backend v5.0")
+    print("  AnuPradaan Backend v5.0")
     print("  PQC: CRYSTALS-Kyber-1024 (NIST FIPS 203 Level 5) + Dilithium-3")
     print("  QRNG: ANU Quantum Lab + OS CSPRNG Fallback")
     print("  Security: bcrypt, rate limiting, admin auth, CORS locked, audit auth")
