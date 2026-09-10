@@ -2290,6 +2290,132 @@ async def set_partner_quota(request: Request, partner_id: str, _admin: str = Dep
 
 
 
+
+# ─── MULTI-SERVER SHAMIR SHARD ENDPOINTS ────────────────────────────────────
+# Each server holds 1 shard via env vars SHARD_SERVER_ID and SHARD_SECRET
+# Server 1 (Railway/Orchestrator) coordinates 2-of-3 reconstruction
+_SHARD_SERVER_ID = int(os.getenv("SHARD_SERVER_ID", "1"))  # 1, 2, or 3
+_SHARD_SECRET = os.getenv("SHARD_SECRET", "")              # This server's shard value
+_SHARD_NODES = {
+    # Configure these env vars on the orchestrator (Server 1):
+    # SHARD_NODE_2_URL = https://your-render-server.onrender.com
+    # SHARD_NODE_3_URL = https://your-docker-server.com
+    2: os.getenv("SHARD_NODE_2_URL", ""),
+    3: os.getenv("SHARD_NODE_3_URL", ""),
+}
+_SHARD_INTER_SECRET = os.getenv("SHARD_INTER_SECRET", "")  # Shared HMAC secret between servers
+
+@app.post("/api/shard/contribute")
+async def shard_contribute(request: Request):
+    """
+    Called by the orchestrator to get this server's shard contribution.
+    Protected by HMAC-SHA256 inter-server authentication.
+    Returns: {server_id, shard_x, shard_y} for Shamir reconstruction.
+    """
+    import hmac as _hmac
+    body = await request.json()
+    token = body.get("inter_token", "")
+    payment_id = body.get("payment_id", "")
+
+    # Verify the inter-server HMAC token
+    if not _SHARD_INTER_SECRET:
+        raise HTTPException(status_code=503, detail="Shard node not configured")
+    expected = _hmac.new(
+        _SHARD_INTER_SECRET.encode(),
+        (payment_id + _SHARD_INTER_SECRET).encode(),
+        "sha256"
+    ).hexdigest()
+    if not _hmac.compare_digest(token, expected):
+        raise HTTPException(status_code=403, detail="Invalid inter-server token")
+    if not _SHARD_SECRET:
+        raise HTTPException(status_code=503, detail="Shard not configured on this node")
+
+    return {
+        "server_id": _SHARD_SERVER_ID,
+        "shard_x": _SHARD_SERVER_ID,
+        "shard_y": _SHARD_SECRET,
+        "payment_id": payment_id
+    }
+
+@app.post("/api/shard/reconstruct")
+@limiter.limit("10/minute")
+async def shard_reconstruct(request: Request, _admin: str = Depends(get_admin_user)):
+    """
+    Orchestrator endpoint: calls other 2 shard nodes, collects shards, reconstructs secret.
+    Only the orchestrator (Server 1) runs this. Used for high-value payment authorization.
+    """
+    import hmac as _hmac
+    import asyncio as _aio
+    body = await request.json()
+    payment_id = body.get("payment_id", "missing")
+
+    # Build inter-server HMAC token
+    if not _SHARD_INTER_SECRET:
+        raise HTTPException(status_code=503, detail="SHARD_INTER_SECRET not set")
+    inter_token = _hmac.new(
+        _SHARD_INTER_SECRET.encode(),
+        (payment_id + _SHARD_INTER_SECRET).encode(),
+        "sha256"
+    ).hexdigest()
+
+    shards = []
+    # This server's own shard
+    if _SHARD_SECRET:
+        shards.append((_SHARD_SERVER_ID, int(_SHARD_SECRET, 16) if len(_SHARD_SECRET) == 64 else int.from_bytes(_SHARD_SECRET.encode()[:32], "big")))
+
+    # Request shards from other nodes
+    async def fetch_shard(node_id: int, url: str):
+        if not url:
+            return None
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(f"{url}/api/shard/contribute", json={
+                    "inter_token": inter_token,
+                    "payment_id": payment_id
+                })
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return (int(data["shard_x"]), int(data["shard_y"], 16) if isinstance(data["shard_y"], str) and len(data["shard_y"]) == 64 else int(data["shard_y"]))
+        except Exception as e:
+            print(f"[SHARD] Node {node_id} unreachable: {e}")
+        return None
+
+    tasks = [fetch_shard(nid, url) for nid, url in _SHARD_NODES.items() if url]
+    results = await _aio.gather(*tasks)
+    for res in results:
+        if res:
+            shards.append(res)
+
+    if len(shards) < 2:
+        raise HTTPException(status_code=503, detail=f"Only {len(shards)} shard(s) available. Need 2-of-3. Check other servers.")
+
+    # Reconstruct using Shamir 2-of-3
+    try:
+        reconstructed = _shamir_reconstruct(shards[:2])
+        reconstructed_hex = format(reconstructed, '064x')
+        return {
+            "success": True,
+            "payment_id": payment_id,
+            "shards_collected": len(shards),
+            "reconstruction": "2-of-3 Shamir GF(2^256-189) SUCCESS",
+            "secret_hash": hashlib.sha256(reconstructed_hex.encode()).hexdigest()[:16] + "...",  # Never expose full secret
+            "authorized": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reconstruction failed: {str(e)}")
+
+@app.get("/api/shard/status")
+async def shard_status(_admin: str = Depends(get_admin_user)):
+    """Check this server's shard configuration status."""
+    return {
+        "server_id": _SHARD_SERVER_ID,
+        "shard_configured": bool(_SHARD_SECRET),
+        "inter_secret_configured": bool(_SHARD_INTER_SECRET),
+        "node_2_url": _SHARD_NODES[2] or "NOT SET",
+        "node_3_url": _SHARD_NODES[3] or "NOT SET",
+        "role": "orchestrator" if _SHARD_SERVER_ID == 1 else "shard-node"
+    }
+
 @app.post("/api/admin/config/pool-target")
 @limiter.limit("5/minute")
 async def set_pool_target(request: Request, _admin: str = Depends(get_admin_user)):
