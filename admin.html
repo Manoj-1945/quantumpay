@@ -1050,6 +1050,53 @@ async function triggerHarvest(){
 }
 
 // ── Admin Stats ──────────────────────────────────────────────────────────────
+
+// ─── Real-time WebSocket connection to get live push updates ────────────────
+let ws = null;
+function connectAdminWS() {
+  const wsUrl = (API.startsWith('https') ? 'wss' : 'ws') + '://' + (API.replace('https://','').replace('http://','')) + '/ws/admin?token=' + encodeURIComponent(adminToken);
+  try {
+    ws = new WebSocket(wsUrl);
+    ws.onopen = () => console.log('[WS] Admin socket connected');
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        // Real-time updates: payment arrived, pool depleted, threat detected
+        if (msg.type === 'new_payment') {
+          const badge = document.getElementById('sb-txns');
+          if(badge) badge.textContent = (parseInt(badge.textContent||'0') + 1);
+          showToast('New payment: ' + (msg.amount ? 'Rs.' + msg.amount : '') + ' from ' + (msg.sender||'unknown'));
+        }
+        if (msg.type === 'pool_low') {
+          showToast('WARNING: Token pool low! Only ' + msg.available + ' tokens remaining.', 'warn');
+          loadIBMPoolStatus();
+        }
+        if (msg.type === 'threat') {
+          showToast('THREAT DETECTED: ' + (msg.attack_type||'Unknown'), 'danger');
+        }
+        if (msg.type === 'harvest_done') {
+          showToast('IBM harvest complete: ' + msg.chunks + ' new chunks added');
+          loadIBMPoolStatus();
+        }
+      } catch(err) { console.warn('[WS] Parse error', err); }
+    };
+    ws.onclose = () => {
+      console.log('[WS] Disconnected, reconnecting in 5s...');
+      setTimeout(connectAdminWS, 5000);
+    };
+    ws.onerror = (e) => console.warn('[WS] Error', e);
+  } catch(e) { console.warn('[WS] Could not connect', e); }
+}
+
+function showToast(msg, type='info') {
+  const t = document.createElement('div');
+  const colors = {info:'#00e5ff', warn:'#ffd600', danger:'#ff1744'};
+  t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1a1a2e;border:1px solid ' + (colors[type]||colors.info) + ';color:#fff;padding:12px 20px;border-radius:10px;font-size:.83rem;z-index:9999;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.5)';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+
 async function loadStats(){
   try{
     const r=await fetch(`${API}/api/admin/stats`,{credentials:'include',headers:{'Authorization':'Bearer '+adminToken}});
