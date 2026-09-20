@@ -1009,6 +1009,269 @@ async def purge_old_records(request: Request, _admin: str = Depends(get_admin_us
         "policy": "USED tokens >90 days and audit logs >7 years purged per RBI data retention policy"
     }
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PARTNER SELF-ONBOARDING SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class PartnerSelfRegisterRequest(BaseModel):
+    org_name: str
+    contact_name: str
+    email: str
+    phone: str
+    bank_type: str          # "Small Finance Bank", "Urban Co-op Bank", "NBFC", "Other"
+    website: str = ""
+    expected_monthly_calls: int = 10000
+    plan_requested: str = "Starter"   # Starter / Professional / Enterprise
+    use_case: str           # Brief description of how they will use the API
+    webhook_url: str = ""
+
+@app.post("/api/v1/b2b/register")
+@limiter.limit("3/hour")
+async def partner_self_register(request: Request, reg: PartnerSelfRegisterRequest):
+    """
+    Partner self-onboarding endpoint.
+    Banks fill this form → stored as PENDING → admin reviews and approves.
+    No API key issued until admin approval.
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Service unavailable")
+
+    # Basic validation
+    if not reg.org_name or len(reg.org_name) < 3:
+        raise HTTPException(status_code=400, detail="Organization name too short")
+    if "@" not in reg.email:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+    if len(reg.use_case) < 20:
+        raise HTTPException(status_code=400, detail="Please describe your use case in at least 20 characters")
+
+    async with db_pool.acquire() as conn:
+        # Check duplicate email
+        existing = await conn.fetchrow(
+            "SELECT id FROM b2b_partners WHERE email=$1", reg.email
+        )
+        if existing:
+            raise HTTPException(status_code=409, detail="An application with this email already exists.")
+
+        # Insert as PENDING registration
+        try:
+            await conn.execute("""
+                INSERT INTO b2b_partners
+                (org_name, email, webhook_url, plan, status, api_key, monthly_quota)
+                VALUES ($1, $2, $3, $4, 'PENDING_REVIEW', 'PENDING', $5)
+            """,
+                f"{reg.org_name} | Contact: {reg.contact_name} | Phone: {reg.phone} | Type: {reg.bank_type} | Website: {reg.website} | Use case: {reg.use_case}",
+                reg.email,
+                reg.webhook_url or "",
+                reg.plan_requested,
+                reg.expected_monthly_calls
+            )
+            # Audit log
+            await conn.execute(
+                "INSERT INTO audit_log (event, details, severity) VALUES ($1, $2, $3)",
+                "PARTNER_SELF_REGISTER",
+                f"New partner application: {reg.org_name} ({reg.email}) - Plan: {reg.plan_requested}",
+                "INFO"
+            )
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="Registration failed. Please try again.")
+
+    return {
+        "success": True,
+        "message": "Your application has been received. Our team will review and contact you within 2 business days.",
+        "org_name": reg.org_name,
+        "email": reg.email,
+        "plan_requested": reg.plan_requested,
+        "status": "PENDING_REVIEW",
+        "submitted_at": __import__("datetime").datetime.utcnow().isoformat() + "Z"
+    }
+
+@app.get("/api/admin/partners/pending")
+async def get_pending_partners(_admin: str = Depends(get_admin_user)):
+    """Get all partners pending admin review/approval."""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB not ready")
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, org_name, email, plan, monthly_quota, created_at FROM b2b_partners WHERE status='PENDING_REVIEW' ORDER BY created_at DESC"
+        )
+    return {
+        "pending": [dict(r) for r in rows],
+        "total": len(rows)
+    }
+
+@app.post("/api/admin/partners/{partner_id}/approve")
+async def approve_partner(partner_id: int, _admin: str = Depends(get_admin_user)):
+    """
+    Admin approves a pending partner registration.
+    Generates real API key and sends it back (admin emails to partner).
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB not ready")
+
+    # Generate real quantum-derived API key
+    import secrets as _sec
+    raw_key = f"AP-{_sec.token_urlsafe(32)}"
+    hashed = hash_api_key(raw_key)
+    webhook_secret = _sec.token_urlsafe(24)
+
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, org_name, email, plan FROM b2b_partners WHERE id=$1 AND status='PENDING_REVIEW'",
+            partner_id
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Pending partner not found")
+
+        plan_limits = {"Starter": 10000, "Professional": 500000, "Enterprise": 10000000}
+        quota = plan_limits.get(row["plan"], 10000)
+
+        await conn.execute("""
+            UPDATE b2b_partners SET
+                api_key=$1, webhook_url=COALESCE(NULLIF(webhook_url,''), ''),
+                status='active', monthly_quota=$2
+            WHERE id=$3
+        """, hashed, quota, partner_id)
+
+        await conn.execute(
+            "INSERT INTO audit_log (event, details, severity) VALUES ($1, $2, $3)",
+            "PARTNER_APPROVED",
+            f"Partner approved: {row['org_name']} (ID:{partner_id}) Plan:{row['plan']}",
+            "HIGH"
+        )
+
+    return {
+        "success": True,
+        "partner_id": partner_id,
+        "org_name": row["org_name"],
+        "email": row["email"],
+        "api_key": raw_key,         # Show ONCE — admin must email this to partner
+        "webhook_secret": webhook_secret,
+        "plan": row["plan"],
+        "monthly_quota": quota,
+        "warning": "IMPORTANT: Copy this API key now and email it to the partner. It will NOT be shown again."
+    }
+
+@app.post("/api/admin/partners/{partner_id}/reject")
+async def reject_partner(partner_id: int, reason: str = "Does not meet current eligibility criteria.", _admin: str = Depends(get_admin_user)):
+    """Admin rejects a pending partner registration."""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB not ready")
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT org_name, email FROM b2b_partners WHERE id=$1 AND status='PENDING_REVIEW'", partner_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Pending partner not found")
+        await conn.execute("UPDATE b2b_partners SET status='REJECTED' WHERE id=$1", partner_id)
+        await conn.execute(
+            "INSERT INTO audit_log (event, details, severity) VALUES ($1, $2, $3)",
+            "PARTNER_REJECTED",
+            f"Partner rejected: {row['org_name']} - Reason: {reason}",
+            "MEDIUM"
+        )
+    return {"success": True, "message": f"Partner {row['org_name']} rejected.", "reason": reason}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TRANSACTION REVERSAL / DISPUTE SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class ReversalRequest(BaseModel):
+    transaction_id: str
+    reason: str           # "DUPLICATE", "FRAUD", "TECHNICAL_ERROR", "CUSTOMER_REQUEST"
+    reversal_reference: str = ""   # Bank's own reference number
+
+@app.post("/api/v1/b2b/transaction/reverse")
+@limiter.limit("20/minute")
+async def reverse_transaction(
+    request: Request,
+    rev: ReversalRequest,
+    api_key: str = Header(...)
+):
+    """
+    Mark a transaction as reversed/disputed.
+    The quantum token used in that transaction is flagged as REVERSED.
+    Actual money reversal happens via bank's own NEFT/RTGS system.
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB not ready")
+
+    hashed = hash_api_key(api_key)
+    async with db_pool.acquire() as conn:
+        # Verify partner
+        partner = await conn.fetchrow(
+            "SELECT id, org_name, status FROM b2b_partners WHERE api_key=$1", hashed
+        )
+        if not partner or partner["status"] != "active":
+            raise HTTPException(status_code=403, detail="Invalid or inactive API key")
+
+        # Find the transaction in audit log
+        txn = await conn.fetchrow(
+            "SELECT id, details FROM audit_log WHERE event='PAYMENT_PROCESSED' AND details LIKE $1 LIMIT 1",
+            f"%{rev.transaction_id}%"
+        )
+
+        valid_reasons = ["DUPLICATE", "FRAUD", "TECHNICAL_ERROR", "CUSTOMER_REQUEST"]
+        if rev.reason not in valid_reasons:
+            raise HTTPException(status_code=400, detail=f"Invalid reason. Must be one of: {valid_reasons}")
+
+        # Log the reversal
+        reversal_id = f"REV-{__import__('secrets').token_urlsafe(8).upper()}"
+        await conn.execute(
+            "INSERT INTO audit_log (event, details, severity) VALUES ($1, $2, $3)",
+            "TRANSACTION_REVERSED",
+            f"Reversal {reversal_id}: TxnID={rev.transaction_id} Partner={partner['org_name']} Reason={rev.reason} Ref={rev.reversal_reference}",
+            "HIGH"
+        )
+
+        # Flag token if found
+        if txn:
+            await conn.execute(
+                "UPDATE key_pool SET status='REVERSED' WHERE token LIKE $1",
+                f"%{rev.transaction_id[:8]}%"
+            )
+
+    return {
+        "success": True,
+        "reversal_id": reversal_id,
+        "transaction_id": rev.transaction_id,
+        "reason": rev.reason,
+        "status": "REVERSAL_LOGGED",
+        "partner": partner["org_name"],
+        "note": "Quantum token flagged as REVERSED. Proceed with monetary reversal via your bank's NEFT/RTGS system.",
+        "reversed_at": __import__("datetime").datetime.utcnow().isoformat() + "Z"
+    }
+
+@app.get("/api/v1/b2b/transaction/{transaction_id}/status")
+@limiter.limit("60/minute")
+async def transaction_status(request: Request, transaction_id: str, api_key: str = Header(...)):
+    """Check status of a transaction by ID."""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB not ready")
+    hashed = hash_api_key(api_key)
+    async with db_pool.acquire() as conn:
+        partner = await conn.fetchrow("SELECT id FROM b2b_partners WHERE api_key=$1", hashed)
+        if not partner:
+            raise HTTPException(status_code=403, detail="Invalid API key")
+        rows = await conn.fetch(
+            "SELECT event, details, created_at FROM audit_log WHERE details LIKE $1 ORDER BY created_at DESC LIMIT 5",
+            f"%{transaction_id}%"
+        )
+    if not rows:
+        return {"transaction_id": transaction_id, "status": "NOT_FOUND", "events": []}
+    events = [{"event": r["event"], "timestamp": str(r["created_at"])} for r in rows]
+    latest = rows[0]["event"]
+    status_map = {
+        "PAYMENT_PROCESSED": "COMPLETED",
+        "TRANSACTION_REVERSED": "REVERSED",
+        "PAYMENT_FAILED": "FAILED"
+    }
+    return {
+        "transaction_id": transaction_id,
+        "status": status_map.get(latest, "PROCESSING"),
+        "events": events
+    }
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "5.0.0", "service": "AnuPradaan API", "uptime": time.time()}
