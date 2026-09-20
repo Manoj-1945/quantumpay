@@ -182,6 +182,29 @@ limiter = Limiter(key_func=get_remote_address)
 
 # ─── APP ─────────────────────────────────────────────────────────────────────
 _ENV = os.getenv("ENV", "production")
+
+# Request body size limit (1MB max)
+from starlette.middleware.base import BaseHTTPMiddleware
+class ContentSizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        cl = request.headers.get("Content-Length")
+        if cl and int(cl) > 1_048_576:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "Request too large. Max 1MB."}, status_code=413)
+        return await call_next(request)
+app.add_middleware(ContentSizeLimitMiddleware)
+
+# X-Request-ID middleware
+import uuid as _uuid_mod
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        rid = request.headers.get("X-Request-ID", str(_uuid_mod.uuid4()))
+        resp = await call_next(request)
+        resp.headers["X-Request-ID"] = rid
+        return resp
+app.add_middleware(RequestIDMiddleware)
+
+
 app = FastAPI(
     title="AnuPradaan API",
     docs_url="/docs" if _ENV == "development" else None,
@@ -440,7 +463,18 @@ async def get_current_user(request: Request):
     except JWTError:
         raise HTTPException(status_code=401, detail="Token expired or invalid")
 
-async def get_admin_user(request: Request):
+async 
+# Admin IP whitelist
+_ADMIN_ALLOWED_IPS = [ip.strip() for ip in os.getenv("ADMIN_ALLOWED_IPS", "").split(",") if ip.strip()]
+
+def check_admin_ip(request: Request):
+    if not _ADMIN_ALLOWED_IPS:
+        return  # No whitelist configured - allow all
+    client_ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "").split(",")[0].strip()
+    if client_ip not in _ADMIN_ALLOWED_IPS:
+        raise HTTPException(status_code=403, detail="Admin access denied from this IP address.")
+
+def get_admin_user(request: Request):
     """Require a valid JWT AND admin flag in DB."""
     upi_id = await get_current_user(request)
     async with aiosqlite.connect(DB_PATH) as db:
