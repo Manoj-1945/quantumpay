@@ -1261,5 +1261,73 @@ document.addEventListener('DOMContentLoaded',loadPendingPartners);
 setTimeout(loadPendingPartners,500);
 </script>
 
+
+    <!-- Pending Partners Tab -->
+    <div id="tab-pending" class="tab-content" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="color:#e2e8f0">Pending Partner Applications</h2>
+        <button onclick="loadPending()" style="background:#7c3aed;border:none;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer">Refresh</button>
+      </div>
+      <div id="pendingList"></div>
+    </div>
+
+<script>
+
+async function loadPending() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  try {
+    const r = await fetch('/api/admin/partners/pending', {headers: {'Authorization': 'Bearer ' + token}});
+    const d = await r.json();
+    document.getElementById('pendingBadge').textContent = d.total || 0;
+    const container = document.getElementById('pendingList');
+    if (!d.pending || d.pending.length === 0) {
+      container.innerHTML = '<p style="color:#64748b;text-align:center;padding:40px">No pending applications</p>';
+      return;
+    }
+    container.innerHTML = d.pending.map(p => `
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+          <div style="flex:1">
+            <div style="font-weight:700;color:#e2e8f0;font-size:1rem">${p.org_name}</div>
+            <div style="color:#94a3b8;font-size:0.85rem;margin-top:4px">${p.email}</div>
+            <div style="display:flex;gap:12px;margin-top:8px">
+              <span style="background:rgba(167,139,250,0.15);color:#a78bfa;padding:2px 10px;border-radius:12px;font-size:0.78rem">${p.plan}</span>
+              <span style="color:#64748b;font-size:0.78rem">${new Date(p.created_at).toLocaleDateString('en-IN')}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button onclick="approvePartner(${p.id})" style="background:#16a34a;border:none;color:#fff;padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:600">Approve</button>
+            <button onclick="rejectPartner(${p.id})" style="background:#dc2626;border:none;color:#fff;padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:600">Reject</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function approvePartner(id) {
+  const token = localStorage.getItem('admin_token');
+  const r = await fetch('/api/admin/partners/' + id + '/approve', {method:'POST', headers:{'Authorization':'Bearer '+token}});
+  const d = await r.json();
+  if (d.success) {
+    alert('APPROVED!\n\nOrg: ' + d.org_name + '\nEmail: ' + d.email + '\n\nAPI KEY (copy now - shown once):\n' + d.api_key + '\n\nPlan: ' + d.plan + '\nQuota: ' + d.monthly_quota.toLocaleString() + ' calls/month\n\nEmail this API key to the partner immediately.');
+    loadPending();
+  } else {
+    alert('Error: ' + JSON.stringify(d));
+  }
+}
+
+async function rejectPartner(id) {
+  const reason = prompt('Reason for rejection:', 'Does not meet current eligibility criteria.');
+  if (!reason) return;
+  const token = localStorage.getItem('admin_token');
+  const r = await fetch('/api/admin/partners/' + id + '/reject?reason=' + encodeURIComponent(reason), {method:'POST', headers:{'Authorization':'Bearer '+token}});
+  const d = await r.json();
+  alert(d.success ? 'Partner rejected.' : 'Error: ' + JSON.stringify(d));
+  loadPending();
+}
+
+</script>
 </body>
 </html>
