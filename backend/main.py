@@ -3,7 +3,7 @@ AnuPradaan Backend v5.0
 ========================
 FIXES applied in this version:
   [1] Admin routes now require JWT + admin role (was publicly open)
-  [2] CORS locked to production domain (was allow_origins=["*"])
+  [2] CORS locked to production domain (was allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","))
   [3] SECRET_KEY MUST be set via env var - no hardcoded fallback (prevents JWT forgery)
   [4] bcrypt password hashing with per-user salt (was broken global-salt PBKDF2)
   [5] /api/audit now requires authentication (was exposing UPI IDs & IPs publicly)
@@ -629,6 +629,22 @@ def verify_shards(shard_A: str, shard_B: str) -> int:
 class IBMQiskitEngine:
     def __init__(self):
         import os
+import logging, json as _json_mod, sys as _sys
+
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        return _json_mod.dumps({
+            "time": self.formatTime(record),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "module": record.module,
+        })
+
+_handler = logging.StreamHandler(_sys.stdout)
+_handler.setFormatter(JSONFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[_handler])
+logger = logging.getLogger("anupradaan")
+
         self.ibm_token = os.getenv("IBM_QUANTUM_TOKEN", "")
         self.monthly_target = 300
         
@@ -892,6 +908,72 @@ async def favicon():
     # Return SVG favicon with quantum icon
     svg_data = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#0a0a0f" stroke="#00d4ff" stroke-width="4"/><text x="50" y="62" font-size="40" text-anchor="middle" fill="#00d4ff" font-family="sans-serif">⚛</text></svg>'
     return Response(content=svg_data, media_type="image/svg+xml")
+
+
+# ── DPDP Act 2023 — Right to Erasure / Data Deletion ────────────────────────
+@app.delete("/api/v1/b2b/data/erase")
+@limiter.limit("3/hour")
+async def erase_partner_data(request: Request, partner_id: int, api_key: str = Header(...)):
+    """
+    DPDP Act 2023 — Right to Erasure endpoint.
+    Partner can request deletion of all their data from the platform.
+    Marks partner as DELETED, anonymizes personal data.
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB not ready")
+    hashed = hash_api_key(api_key)
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, org_name FROM b2b_partners WHERE id=$1 AND api_key=$2",
+            partner_id, hashed
+        )
+        if not row:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        # Anonymize personal data — retain transaction records for regulatory compliance
+        await conn.execute(
+            """UPDATE b2b_partners SET
+               org_name='[DELETED]', email='[DELETED]',
+               api_key='[REVOKED]', webhook_url=NULL,
+               status='DELETED' WHERE id=$1""",
+            partner_id
+        )
+        await conn.execute(
+            "INSERT INTO audit_log (event, details, severity) VALUES ($1, $2, $3)",
+            "DATA_ERASURE_REQUEST",
+            f"Partner {partner_id} requested data erasure under DPDP Act 2023",
+            "HIGH"
+        )
+    return {
+        "success": True,
+        "message": "Your data has been erased in compliance with DPDP Act 2023. Transaction records retained for 7 years as required by RBI.",
+        "partner_id": partner_id,
+        "erased_at": __import__("datetime").datetime.utcnow().isoformat()
+    }
+
+@app.post("/api/admin/data/purge-old-records")
+@limiter.limit("1/day")
+async def purge_old_records(request: Request, _admin: str = Depends(get_admin_user)):
+    """
+    Data Retention Policy: Auto-purge records older than 7 years (RBI mandate).
+    USED records from key_pool older than 90 days are also purged to save storage.
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="DB not ready")
+    async with db_pool.acquire() as conn:
+        # Purge USED tokens older than 90 days
+        used_purged = await conn.execute(
+            "DELETE FROM key_pool WHERE status='USED' AND created_at < NOW() - INTERVAL '90 days'"
+        )
+        # Purge audit logs older than 7 years (RBI data retention policy)
+        audit_purged = await conn.execute(
+            "DELETE FROM audit_log WHERE created_at < NOW() - INTERVAL '7 years'"
+        )
+    return {
+        "success": True,
+        "used_tokens_purged": used_purged,
+        "audit_logs_purged": audit_purged,
+        "policy": "USED tokens >90 days and audit logs >7 years purged per RBI data retention policy"
+    }
 
 @app.get("/health")
 async def health():
