@@ -21,3 +21,5 @@ bcrypt==3.2.2
 
 qiskit>=1.0.0
 qiskit-ibm-runtime>=0.23.0
+
+razorpay==1.4.1
