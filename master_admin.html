@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AnuPradaan Master Control Plane</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:radial-gradient(ellipse at top,#0f0c29 0%,#1a0533 50%,#020308 100%);min-height:100vh;color:#e2e8f0;padding:0}
+.topbar{background:rgba(0,0,0,0.5);backdrop-filter:blur(20px);border-bottom:1px solid rgba(167,139,250,0.2);padding:14px 28px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.brand{font-size:1.3rem;font-weight:800;background:linear-gradient(90deg,#a78bfa,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.master-badge{background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fca5a5;font-size:0.72rem;padding:3px 10px;border-radius:20px;font-weight:700;letter-spacing:0.08em}
+.logout-btn{background:transparent;border:1px solid rgba(255,255,255,0.2);color:#94a3b8;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:0.85rem}
+.container{max-width:1400px;margin:0 auto;padding:28px 20px}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:20px;text-align:center;transition:border-color 0.2s}
+.kpi:hover{border-color:rgba(167,139,250,0.35)}
+.kpi-value{font-size:2rem;font-weight:800;color:#fff;margin-bottom:4px}
+.kpi-label{font-size:0.78rem;color:#64748b;text-transform:uppercase;letter-spacing:0.06em}
+.kpi.green .kpi-value{color:#34d399}
+.kpi.purple .kpi-value{color:#a78bfa}
+.kpi.blue .kpi-value{color:#60a5fa}
+.kpi.orange .kpi-value{color:#fb923c}
+.tabs{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:0}
+.tab{padding:10px 20px;cursor:pointer;font-size:0.9rem;color:#64748b;border-bottom:2px solid transparent;transition:all 0.2s;background:none;border-top:none;border-left:none;border-right:none}
+.tab.active{color:#a78bfa;border-bottom-color:#a78bfa;font-weight:700}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.card{background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;margin-bottom:20px}
+.card-title{font-size:1rem;font-weight:700;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.08)}
+td{padding:10px 12px;font-size:0.88rem;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,0.025)}
+.status-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:0.72rem;font-weight:700;letter-spacing:0.04em}
+.status-active{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);color:#4ade80}
+.status-expired{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171}
+.status-revoked{background:rgba(107,114,128,0.15);border:1px solid rgba(107,114,128,0.3);color:#9ca3af}
+.form-group{margin-bottom:14px}
+label{display:block;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;margin-bottom:6px}
+input,select{width:100%;padding:11px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:#fff;font-size:0.9rem;outline:none}
+input:focus,select:focus{border-color:#a78bfa}
+.btn-primary{padding:11px 22px;background:linear-gradient(135deg,#7c3aed,#2563eb);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer;transition:opacity 0.2s}
+.btn-primary:hover{opacity:0.9}
+.btn-danger{padding:7px 14px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#f87171;font-size:0.8rem;cursor:pointer}
+.btn-success{padding:7px 14px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:8px;color:#4ade80;font-size:0.8rem;cursor:pointer}
+.license-key-box{background:rgba(0,0,0,0.5);border:1px solid rgba(167,139,250,0.3);border-radius:10px;padding:14px;font-family:monospace;font-size:0.9rem;color:#c4b5fd;word-break:break-all;margin-top:12px;display:none}
+.alert{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px;color:#fca5a5;font-size:0.85rem;margin-bottom:14px;display:none}
+.telemetry-box{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;font-family:monospace;font-size:0.8rem;color:#a5f3fc;max-height:200px;overflow-y:auto}
+.login-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:9999}
+.login-box{background:rgba(30,27,75,0.95);border:1px solid rgba(167,139,250,0.3);border-radius:20px;padding:36px;width:360px;text-align:center}
+.login-box h2{font-size:1.3rem;font-weight:800;color:#fff;margin-bottom:6px}
+.login-box p{color:#64748b;font-size:0.85rem;margin-bottom:24px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+</style>
+</head>
+<body>
+
+<!-- Login Overlay -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h2>AnuPradaan</h2>
+    <p>Master Control Plane</p>
+    <div class="form-group"><label>UPI ID</label><input type="text" id="upi" placeholder="admin@anupradaan"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="pass" placeholder="Master admin password"></div>
+    <button class="btn-primary" style="width:100%;margin-top:8px" onclick="masterLogin()">Access Master Panel</button>
+    <div class="alert" id="loginErr">Invalid credentials</div>
+  </div>
+</div>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="brand">AnuPradaan</div>
+  <span class="master-badge">MASTER CONTROL PLANE</span>
+  <button class="logout-btn" onclick="logout()">Logout</button>
+</div>
+
+<div class="container">
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi green"><div class="kpi-value" id="kpiRevenue">---</div><div class="kpi-label">Monthly Revenue (INR)</div></div>
+    <div class="kpi purple"><div class="kpi-value" id="kpiLicenses">---</div><div class="kpi-label">Active Licenses</div></div>
+    <div class="kpi blue"><div class="kpi-value" id="kpiTokens">---</div><div class="kpi-label">Tokens This Month</div></div>
+    <div class="kpi orange"><div class="kpi-value" id="kpiTotal">---</div><div class="kpi-label">Total Licensed Banks</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('revenue')">Revenue Dashboard</button>
+    <button class="tab" onclick="switchTab('issue')">Issue License</button>
+    <button class="tab" onclick="switchTab('licenses')">All Licenses</button>
+  </div>
+
+  <!-- Revenue Tab -->
+  <div class="tab-panel active" id="tab-revenue">
+    <div class="card">
+      <div class="card-title">Bank-by-Bank Revenue Breakdown</div>
+      <table id="revenueTable">
+        <thead><tr>
+          <th>Organization</th><th>Plan</th><th>Status</th>
+          <th>Tokens This Month</th><th>Monthly Bill (INR)</th><th>Last Beacon</th>
+        </tr></thead>
+        <tbody id="revenueBody"><tr><td colspan="6" style="text-align:center;color:#64748b">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Issue License Tab -->
+  <div class="tab-panel" id="tab-issue">
+    <div class="card" style="max-width:560px">
+      <div class="card-title">Issue New License to Bank / Payment System</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Organization Name</label>
+          <input type="text" id="orgName" placeholder="SBI Cooperative Bank">
+        </div>
+        <div class="form-group">
+          <label>Contact Email</label>
+          <input type="email" id="orgEmail" placeholder="cto@sbi-coop.com">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Plan</label>
+          <select id="orgPlan">
+            <option value="starter">Starter — Rs.5,000/mo (10K calls)</option>
+            <option value="professional">Professional — Rs.40,000/mo (500K calls)</option>
+            <option value="enterprise">Enterprise — Rs.1,50,000/mo (Unlimited)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Validity (Days)</label>
+          <input type="number" id="orgDays" value="365" min="30" max="1825">
+        </div>
+      </div>
+      <button class="btn-primary" onclick="issueLicense()">Generate License Key</button>
+      <div class="license-key-box" id="licenseKeyBox">
+        <div style="color:#64748b;font-size:0.72rem;margin-bottom:6px">LICENSE KEY (shown only once — copy immediately):</div>
+        <div id="licenseKeyValue"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Licenses Tab -->
+  <div class="tab-panel" id="tab-licenses">
+    <div class="card">
+      <div class="card-title">All Issued Licenses</div>
+      <table>
+        <thead><tr>
+          <th>Organization</th><th>License Key (Masked)</th><th>Plan</th><th>Status</th>
+          <th>Expires</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="licensesBody"><tr><td colspan="6" style="text-align:center;color:#64748b">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let adminToken = sessionStorage.getItem('master_token') || '';
+
+async function masterLogin() {
+  const upi = document.getElementById('upi').value;
+  const pass = document.getElementById('pass').value;
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({upi_id: upi, password: pass})
+  });
+  const data = await res.json();
+  if (!res.ok || !data.access_token) {
+    document.getElementById('loginErr').style.display = 'block';
+    return;
+  }
+  adminToken = data.access_token;
+  sessionStorage.setItem('master_token', adminToken);
+  document.getElementById('loginOverlay').style.display = 'none';
+  loadAll();
+}
+
+function logout() {
+  sessionStorage.removeItem('master_token');
+  location.reload();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((b,i) => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const tabs = ['revenue', 'issue', 'licenses'];
+  const idx = tabs.indexOf(tab);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'revenue') loadRevenue();
+  if (tab === 'licenses') loadLicenses();
+}
+
+async function apiFetch(url) {
+  const res = await fetch(url, {headers: {'Authorization': 'Bearer ' + adminToken}});
+  if (res.status === 401) { logout(); throw new Error('Unauthorized'); }
+  return res.json();
+}
+
+async function loadRevenue() {
+  try {
+    const data = await apiFetch('/api/master/revenue');
+    document.getElementById('kpiRevenue').textContent = data.summary.total_monthly_revenue_inr.toLocaleString('en-IN');
+    document.getElementById('kpiLicenses').textContent = data.summary.active_licenses;
+    document.getElementById('kpiTokens').textContent = data.summary.total_tokens_dispensed_this_month.toLocaleString();
+    document.getElementById('kpiTotal').textContent = data.summary.total_licensed_banks;
+
+    const tbody = document.getElementById('revenueBody');
+    if (!data.banks || data.banks.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#64748b">No licensed banks yet. Issue a license to get started.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.banks.map(b => `
+      <tr>
+        <td><strong>${b.org_name}</strong></td>
+        <td style="text-transform:capitalize">${b.plan}</td>
+        <td><span class="status-badge status-${b.status}">${b.status.toUpperCase()}</span></td>
+        <td>${b.tokens_this_month.toLocaleString()}</td>
+        <td style="color:#4ade80;font-weight:700">Rs. ${b.monthly_bill_inr.toLocaleString('en-IN')}</td>
+        <td style="font-size:0.78rem;color:#64748b">${b.last_beacon_at}</td>
+      </tr>
+    `).join('');
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+async function loadLicenses() {
+  try {
+    const data = await apiFetch('/api/master/licenses');
+    const tbody = document.getElementById('licensesBody');
+    if (!data.licenses || data.licenses.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#64748b">No licenses issued yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.licenses.map(l => `
+      <tr>
+        <td><strong>${l.org_name}</strong><br><small style="color:#64748b">${l.contact_email}</small></td>
+        <td style="font-family:monospace;font-size:0.78rem;color:#c4b5fd">${l.license_key_masked}</td>
+        <td style="text-transform:capitalize">${l.plan}</td>
+        <td><span class="status-badge status-${l.status}">${l.status.toUpperCase()}</span></td>
+        <td style="font-size:0.78rem;color:#64748b">${l.expires_at ? l.expires_at.substring(0,10) : 'N/A'}</td>
+        <td style="display:flex;gap:6px">
+          ${l.status === 'active' ? `<button class="btn-danger" onclick="revokeLic('${l.id}')">Revoke</button>` : ''}
+          ${l.status !== 'active' ? `<button class="btn-success" onclick="renewLic('${l.id}')">Renew</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+async function issueLicense() {
+  const payload = {
+    org_name: document.getElementById('orgName').value,
+    contact_email: document.getElementById('orgEmail').value,
+    plan: document.getElementById('orgPlan').value,
+    validity_days: parseInt(document.getElementById('orgDays').value)
+  };
+  if (!payload.org_name || !payload.contact_email) return alert('Fill all fields');
+
+  const res = await fetch('/api/master/license/issue', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) return alert('Error: ' + (data.detail || 'Failed'));
+
+  document.getElementById('licenseKeyValue').textContent = data.license_key;
+  document.getElementById('licenseKeyBox').style.display = 'block';
+  navigator.clipboard.writeText(data.license_key).catch(() => {});
+  alert('License issued! Key copied to clipboard. Share only with the bank via secure channel.');
+  loadRevenue();
+}
+
+async function revokeLic(id) {
+  if (!confirm('Revoke this license? The bank will lose access within 24 hours.')) return;
+  const key = prompt('Enter the license key to confirm:');
+  if (!key) return;
+  const res = await fetch('/api/master/license/' + key + '/revoke', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken},
+    body: JSON.stringify({reason: 'Admin revoked via Master Panel'})
+  });
+  const data = await res.json();
+  alert(res.ok ? 'License revoked.' : 'Error: ' + data.detail);
+  loadLicenses();
+}
+
+async function renewLic(id) {
+  const key = prompt('Enter the license key to renew:');
+  const days = prompt('Extend by how many days?', '365');
+  if (!key || !days) return;
+  const res = await fetch('/api/master/license/renew', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken},
+    body: JSON.stringify({license_key: key, validity_days: parseInt(days)})
+  });
+  const data = await res.json();
+  alert(res.ok ? 'License renewed.' : 'Error: ' + data.detail);
+  loadLicenses();
+}
+
+function loadAll() {
+  loadRevenue();
+}
+
+// Auto-login check
+if (adminToken) {
+  document.getElementById('loginOverlay').style.display = 'none';
+  loadAll();
+}
+</script>
+</body>
+</html>
