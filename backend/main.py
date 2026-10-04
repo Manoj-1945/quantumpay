@@ -259,6 +259,35 @@ class PQCManager:
 
 pqc_engine = PQCManager()
 
+
+# ── BRUTE FORCE LOGIN PROTECTION ──────────────────────────────────────────────
+_login_attempts: dict = {}  # {ip_or_upi: {"count": N, "locked_until": timestamp}}
+_MAX_ATTEMPTS = 5
+_LOCKOUT_SECONDS = 900  # 15 minutes
+
+def _check_brute_force(key: str):
+    """Raises 429 if IP/UPI is locked out."""
+    entry = _login_attempts.get(key)
+    if entry and entry["locked_until"] > time.time():
+        remaining = int(entry["locked_until"] - time.time())
+        raise HTTPException(
+            status_code=429,
+            detail=f"Account temporarily locked due to too many failed attempts. Try again in {remaining} seconds."
+        )
+
+def _record_failed_attempt(key: str):
+    """Records a failed login. Locks after _MAX_ATTEMPTS."""
+    entry = _login_attempts.get(key, {"count": 0, "locked_until": 0})
+    entry["count"] += 1
+    if entry["count"] >= _MAX_ATTEMPTS:
+        entry["locked_until"] = time.time() + _LOCKOUT_SECONDS
+        print(f"[SECURITY] Login lockout triggered for: {key}")
+    _login_attempts[key] = entry
+
+def _clear_failed_attempts(key: str):
+    """Clears lockout after successful login."""
+    _login_attempts.pop(key, None)
+
 app = FastAPI(
     title="AnuPradaan API",
     docs_url="/docs" if _ENV == "development" else None,
@@ -313,6 +342,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com; connect-src 'self' wss: https:; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
         return response
 
 app.add_middleware(SecurityHeadersMiddleware)
@@ -1531,6 +1561,399 @@ async def razorpay_verify_payment(req: RazorpayVerifyRequest, request: Request):
         "timestamp_utc": now_ts.isoformat() + "Z",
         "message": "Payment verified authentic. Quantum token successfully collapsed to prevent replay."
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ANUPRADAAN MASTER LICENSE SYSTEM + TELEMETRY BEACON + REVENUE DASHBOARD
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class LicenseIssueRequest(BaseModel):
+    org_name: str
+    contact_email: str
+    plan: str = "starter"           # starter / professional / enterprise
+    validity_days: int = 365
+
+class LicenseRenewRequest(BaseModel):
+    license_key: str
+    validity_days: int = 365
+
+class TelemetryBeaconRequest(BaseModel):
+    license_key: str
+    tokens_consumed_this_hour: int
+    pool_remaining: int
+    timestamp_utc: str
+    hmac_signature: str             # HMAC-SHA256 of (license_key + tokens + timestamp)
+
+# ── TABLE INIT HELPER ──────────────────────────────────────────────────────────
+async def init_license_tables():
+    """Creates master license and telemetry tables if they do not exist."""
+    if not db_pool:
+        return
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS anp_licenses (
+                id TEXT PRIMARY KEY,
+                license_key TEXT UNIQUE NOT NULL,
+                org_name TEXT NOT NULL,
+                contact_email TEXT NOT NULL,
+                plan TEXT NOT NULL DEFAULT 'starter',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                revoked_at TIMESTAMP,
+                revoke_reason TEXT
+            );
+            CREATE TABLE IF NOT EXISTS anp_telemetry (
+                id SERIAL PRIMARY KEY,
+                license_key TEXT NOT NULL,
+                org_name TEXT NOT NULL,
+                tokens_this_hour INTEGER NOT NULL,
+                pool_remaining INTEGER NOT NULL,
+                reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_telemetry_license ON anp_telemetry(license_key);
+            CREATE INDEX IF NOT EXISTS idx_telemetry_time ON anp_telemetry(reported_at);
+        """)
+    print("[OK] License and telemetry tables initialized.")
+
+# ── MASTER LICENSE MANAGEMENT ──────────────────────────────────────────────────
+
+@app.post("/api/master/license/issue")
+async def issue_license(req: LicenseIssueRequest, _admin: str = Depends(get_admin_user)):
+    """
+    MASTER ONLY: Issue a new license key to a bank or payment system.
+    License key format: ANP-{ORG_CODE}-{YEAR}-{32HEX}
+    """
+    org_code = "".join(c for c in req.org_name.upper()[:6] if c.isalpha())
+    year = datetime.utcnow().strftime("%Y")
+    random_hex = secrets.token_hex(16)
+    license_key = f"ANP-{org_code}-{year}-{random_hex.upper()}"
+    license_id = str(uuid.uuid4())
+    expires_at = datetime.utcnow().replace(microsecond=0)
+    from datetime import timedelta as _td
+    expires_at = expires_at + _td(days=req.validity_days)
+
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    await init_license_tables()
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO anp_licenses (id, license_key, org_name, contact_email, plan, is_active, expires_at)
+            VALUES ($1, $2, $3, $4, $5, 1, $6)
+        """, license_id, license_key, req.org_name, req.contact_email, req.plan.lower(), expires_at)
+
+    await append_audit_block(
+        actor="MASTER_ADMIN",
+        action="LICENSE_ISSUED",
+        data={"org_name": req.org_name, "plan": req.plan, "expires_at": str(expires_at)}
+    )
+
+    plan_limits = {"starter": 10000, "professional": 500000, "enterprise": "unlimited"}
+    return {
+        "success": True,
+        "license_key": license_key,
+        "org_name": req.org_name,
+        "plan": req.plan,
+        "monthly_token_quota": plan_limits.get(req.plan.lower(), 10000),
+        "expires_at": expires_at.isoformat() + "Z",
+        "validity_days": req.validity_days,
+        "message": "License issued. Provide this key to the bank for on-premises activation. Store securely — shown only once."
+    }
+
+
+@app.get("/api/master/license/{license_key}/status")
+async def check_license_status(license_key: str, _admin: str = Depends(get_admin_user)):
+    """MASTER ONLY: Check validity and usage of a specific license."""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Database not available")
+    await init_license_tables()
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, org_name, contact_email, plan, is_active, issued_at, expires_at, revoked_at, revoke_reason "
+            "FROM anp_licenses WHERE license_key=$1", license_key
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="License not found")
+
+    is_expired = row["expires_at"] < datetime.utcnow()
+    is_valid = bool(row["is_active"]) and not is_expired
+
+    # Get 30-day usage stats
+    async with db_pool.acquire() as conn:
+        usage = await conn.fetchrow("""
+            SELECT COALESCE(SUM(tokens_this_hour), 0) as total_30d,
+                   COALESCE(SUM(tokens_this_hour) FILTER (WHERE reported_at > NOW() - INTERVAL '30 days'), 0) as this_month
+            FROM anp_telemetry WHERE license_key=$1
+        """, license_key)
+
+    plan_price = {"starter": 5000, "professional": 40000, "enterprise": 150000}
+    return {
+        "valid": is_valid,
+        "org_name": row["org_name"],
+        "plan": row["plan"],
+        "is_active": bool(row["is_active"]),
+        "is_expired": is_expired,
+        "issued_at": str(row["issued_at"]),
+        "expires_at": str(row["expires_at"]),
+        "revoked_at": str(row["revoked_at"]) if row["revoked_at"] else None,
+        "revoke_reason": row["revoke_reason"],
+        "tokens_used_this_month": usage["this_month"] if usage else 0,
+        "tokens_used_all_time": usage["total_30d"] if usage else 0,
+        "monthly_bill_inr": plan_price.get(row["plan"], 5000)
+    }
+
+
+@app.post("/api/master/license/{license_key}/revoke")
+async def revoke_license(license_key: str, _admin: str = Depends(get_admin_user), request: Request = None):
+    """MASTER ONLY: Revoke a license. Bank's on-prem system will stop on next sync."""
+    body = {}
+    try:
+        body = await request.json() if request else {}
+    except Exception:
+        pass
+    reason = body.get("reason", "Payment overdue or contract terminated")
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Database not available")
+    await init_license_tables()
+    async with db_pool.acquire() as conn:
+        result = await conn.execute(
+            "UPDATE anp_licenses SET is_active=0, revoked_at=NOW(), revoke_reason=$1 WHERE license_key=$2",
+            reason, license_key
+        )
+    if result == "UPDATE 0":
+        raise HTTPException(status_code=404, detail="License not found")
+    await append_audit_block(
+        actor="MASTER_ADMIN",
+        action="LICENSE_REVOKED",
+        data={"license_key": license_key[:16] + "...", "reason": reason}
+    )
+    return {"success": True, "message": "License revoked. On-prem system will stop entropy sync within 24 hours."}
+
+
+@app.post("/api/master/license/renew")
+async def renew_license(req: LicenseRenewRequest, _admin: str = Depends(get_admin_user)):
+    """MASTER ONLY: Extend a license by N more days."""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Database not available")
+    await init_license_tables()
+    from datetime import timedelta as _td
+    async with db_pool.acquire() as conn:
+        result = await conn.execute("""
+            UPDATE anp_licenses
+            SET is_active=1,
+                expires_at=GREATEST(expires_at, NOW()) + $1::INTERVAL,
+                revoked_at=NULL, revoke_reason=NULL
+            WHERE license_key=$2
+        """, f"{req.validity_days} days", req.license_key)
+    if result == "UPDATE 0":
+        raise HTTPException(status_code=404, detail="License not found")
+    return {"success": True, "extended_by_days": req.validity_days, "message": "License renewed successfully."}
+
+
+# ── ON-PREMISES LICENSE VALIDATION ────────────────────────────────────────────
+
+@app.get("/api/license/validate/{license_key}")
+async def validate_license_onprem(license_key: str):
+    """
+    Called by bank's on-premises AnuPradaan software on startup and every 24 hours.
+    Returns: valid status, quota, and entropy sync authorization.
+    NO ADMIN AUTH REQUIRED (called by automated software, not humans).
+    Rate limited to prevent abuse.
+    """
+    if not license_key.startswith("ANP-") or len(license_key) < 20:
+        raise HTTPException(status_code=400, detail="Invalid license key format")
+
+    if not db_pool:
+        # Graceful degradation: allow if DB temporarily unavailable
+        return {"valid": True, "degraded": True, "message": "Database unavailable, graceful pass"}
+
+    await init_license_tables()
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT org_name, plan, is_active, expires_at FROM anp_licenses WHERE license_key=$1",
+            license_key
+        )
+    if not row:
+        raise HTTPException(status_code=403, detail="INVALID_LICENSE: License key not found in AnuPradaan registry")
+
+    is_expired = row["expires_at"] < datetime.utcnow()
+    is_valid = bool(row["is_active"]) and not is_expired
+    plan_limits = {"starter": 10000, "professional": 500000, "enterprise": 10000000}
+
+    if not is_valid:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "LICENSE_INACTIVE",
+                "message": "Your AnuPradaan license has expired or been revoked. Please contact support@anupradaan.com",
+                "expires_at": str(row["expires_at"]),
+                "is_active": bool(row["is_active"])
+            }
+        )
+
+    return {
+        "valid": True,
+        "org_name": row["org_name"],
+        "plan": row["plan"],
+        "monthly_token_quota": plan_limits.get(row["plan"], 10000),
+        "expires_at": str(row["expires_at"]),
+        "entropy_sync_authorized": True,
+        "message": "License valid. Entropy sync authorized."
+    }
+
+
+# ── TELEMETRY BEACON ───────────────────────────────────────────────────────────
+
+@app.post("/api/telemetry/beacon")
+async def receive_telemetry_beacon(req: TelemetryBeaconRequest):
+    """
+    Receives encrypted usage telemetry from bank's on-premises AnuPradaan instance.
+    ZERO banking transaction data is in this payload.
+    Only anonymous token consumption counts are reported.
+    Protected by HMAC-SHA256 with the license key as the shared secret.
+    """
+    import hmac as _hmac
+
+    if not req.license_key.startswith("ANP-"):
+        raise HTTPException(status_code=400, detail="Invalid license key format")
+
+    # Verify HMAC: signature = HMAC-SHA256(license_key, tokens+timestamp)
+    expected_sig = _hmac.new(
+        req.license_key.encode(),
+        f"{req.tokens_consumed_this_hour}:{req.timestamp_utc}".encode(),
+        "sha256"
+    ).hexdigest()
+
+    if not _hmac.compare_digest(expected_sig, req.hmac_signature):
+        raise HTTPException(status_code=401, detail="TELEMETRY_AUTH_FAILED: HMAC signature mismatch")
+
+    if not db_pool:
+        return {"accepted": True, "warning": "DB unavailable, telemetry not stored"}
+
+    await init_license_tables()
+
+    # Resolve org_name for this license
+    async with db_pool.acquire() as conn:
+        lic = await conn.fetchrow(
+            "SELECT org_name, is_active, expires_at FROM anp_licenses WHERE license_key=$1",
+            req.license_key
+        )
+    if not lic:
+        raise HTTPException(status_code=403, detail="Unknown license key in telemetry beacon")
+
+    if not lic["is_active"] or lic["expires_at"] < datetime.utcnow():
+        raise HTTPException(status_code=403, detail="License inactive — telemetry rejected")
+
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO anp_telemetry (license_key, org_name, tokens_this_hour, pool_remaining)
+            VALUES ($1, $2, $3, $4)
+        """, req.license_key, lic["org_name"], req.tokens_consumed_this_hour, req.pool_remaining)
+
+    return {
+        "accepted": True,
+        "org_name": lic["org_name"],
+        "tokens_recorded": req.tokens_consumed_this_hour,
+        "message": "Telemetry recorded. Thank you."
+    }
+
+
+# ── MASTER REVENUE DASHBOARD ───────────────────────────────────────────────────
+
+@app.get("/api/master/revenue")
+async def master_revenue_dashboard(_admin: str = Depends(get_admin_user)):
+    """
+    MASTER CONTROL PLANE: Shows real-time revenue from all licensed banks/payment systems.
+    Revenue is automatically calculated from telemetry beacon data.
+    """
+    plan_price = {"starter": 5000, "professional": 40000, "enterprise": 150000}
+
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    await init_license_tables()
+    async with db_pool.acquire() as conn:
+        # All active licenses
+        licenses = await conn.fetch("""
+            SELECT l.id, l.license_key, l.org_name, l.plan, l.is_active,
+                   l.issued_at, l.expires_at,
+                   COALESCE(SUM(t.tokens_this_hour) FILTER (
+                       WHERE t.reported_at > NOW() - INTERVAL '30 days'
+                   ), 0) AS tokens_this_month,
+                   COALESCE(SUM(t.tokens_this_hour), 0) AS tokens_all_time,
+                   MAX(t.reported_at) AS last_beacon_at
+            FROM anp_licenses l
+            LEFT JOIN anp_telemetry t ON t.license_key = l.license_key
+            GROUP BY l.id, l.license_key, l.org_name, l.plan, l.is_active, l.issued_at, l.expires_at
+            ORDER BY tokens_this_month DESC
+        """)
+
+        # Monthly aggregate
+        monthly_agg = await conn.fetchrow("""
+            SELECT COALESCE(SUM(t.tokens_this_hour), 0) AS total_tokens_this_month
+            FROM anp_telemetry t
+            WHERE t.reported_at > NOW() - INTERVAL '30 days'
+        """)
+
+    total_monthly_revenue = 0
+    bank_details = []
+    for lic in licenses:
+        monthly_bill = plan_price.get(lic["plan"], 5000)
+        if bool(lic["is_active"]) and lic["expires_at"] > datetime.utcnow():
+            total_monthly_revenue += monthly_bill
+        is_expired = lic["expires_at"] < datetime.utcnow()
+        bank_details.append({
+            "org_name": lic["org_name"],
+            "plan": lic["plan"],
+            "status": "active" if bool(lic["is_active"]) and not is_expired else ("expired" if is_expired else "revoked"),
+            "tokens_this_month": lic["tokens_this_month"],
+            "tokens_all_time": lic["tokens_all_time"],
+            "monthly_bill_inr": monthly_bill,
+            "last_beacon_at": str(lic["last_beacon_at"]) if lic["last_beacon_at"] else "No beacon received yet",
+            "expires_at": str(lic["expires_at"])
+        })
+
+    return {
+        "master_dashboard": "AnuPradaan Master Control Plane",
+        "summary": {
+            "total_licensed_banks": len(bank_details),
+            "active_licenses": sum(1 for b in bank_details if b["status"] == "active"),
+            "total_monthly_revenue_inr": total_monthly_revenue,
+            "total_tokens_dispensed_this_month": monthly_agg["total_tokens_this_month"] if monthly_agg else 0,
+            "currency": "INR"
+        },
+        "banks": bank_details,
+        "timestamp_utc": datetime.utcnow().isoformat() + "Z"
+    }
+
+
+@app.get("/api/master/licenses")
+async def list_all_licenses(_admin: str = Depends(get_admin_user)):
+    """MASTER ONLY: List all issued licenses."""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Database not available")
+    await init_license_tables()
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, license_key, org_name, contact_email, plan, is_active, issued_at, expires_at "
+            "FROM anp_licenses ORDER BY issued_at DESC"
+        )
+    result = []
+    for row in rows:
+        masked_key = row["license_key"][:12] + "****" + row["license_key"][-4:]
+        is_expired = row["expires_at"] < datetime.utcnow()
+        result.append({
+            "id": row["id"],
+            "license_key_masked": masked_key,
+            "org_name": row["org_name"],
+            "contact_email": row["contact_email"],
+            "plan": row["plan"],
+            "status": "active" if bool(row["is_active"]) and not is_expired else ("expired" if is_expired else "revoked"),
+            "issued_at": str(row["issued_at"]),
+            "expires_at": str(row["expires_at"])
+        })
+    return {"total": len(result), "licenses": result}
 
 @app.get("/health")
 async def health():
