@@ -547,7 +547,6 @@ async def get_current_user(request: Request):
     except JWTError:
         raise HTTPException(status_code=401, detail="Token expired or invalid")
 
-async 
 # Admin IP whitelist
 _ADMIN_ALLOWED_IPS = [ip.strip() for ip in os.getenv("ADMIN_ALLOWED_IPS", "").split(",") if ip.strip()]
 
@@ -558,7 +557,7 @@ def check_admin_ip(request: Request):
     if client_ip not in _ADMIN_ALLOWED_IPS:
         raise HTTPException(status_code=403, detail="Admin access denied from this IP address.")
 
-def get_admin_user(request: Request):
+async def get_admin_user(request: Request):
     """Require a valid JWT AND admin flag in DB."""
     upi_id = await get_current_user(request)
     async with aiosqlite.connect(DB_PATH) as db:
@@ -744,9 +743,6 @@ def verify_shards(shard_A: str, shard_B: str) -> int:
     s1 = (2, int(shard_B, 16))
     return _shamir_reconstruct([s0, s1])
 
-class IBMQiskitEngine:
-    def __init__(self):
-        import os
 import logging, json as _json_mod, sys as _sys
 
 class JSONFormatter(logging.Formatter):
@@ -763,6 +759,9 @@ _handler.setFormatter(JSONFormatter())
 logging.basicConfig(level=logging.INFO, handlers=[_handler])
 logger = logging.getLogger("anupradaan")
 
+class IBMQiskitEngine:
+    def __init__(self):
+        import os
         self.ibm_token = os.getenv("IBM_QUANTUM_TOKEN", "")
         self.monthly_target = 300
         
