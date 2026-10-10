@@ -192,7 +192,6 @@ class ContentSizeLimitMiddleware(BaseHTTPMiddleware):
             from fastapi.responses import JSONResponse
             return JSONResponse({"detail": "Request too large. Max 1MB."}, status_code=413)
         return await call_next(request)
-app.add_middleware(ContentSizeLimitMiddleware)
 
 # X-Request-ID middleware
 import uuid as _uuid_mod
@@ -202,7 +201,6 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         resp = await call_next(request)
         resp.headers["X-Request-ID"] = rid
         return resp
-app.add_middleware(RequestIDMiddleware)
 
 
 
@@ -346,6 +344,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(ContentSizeLimitMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 # ─── DATABASE ────────────────────────────────────────────────────────────────
 async def init_db():
